@@ -1,0 +1,7 @@
+*.log
+*.sched
+*.so
+*.mem
+output.log
+pipelined.log
+build/
