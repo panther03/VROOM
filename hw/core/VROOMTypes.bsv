@@ -1,6 +1,7 @@
 import Vector::*;
 import XRUtil::*;
 import RegFile::*;
+import KonataHelper::*;
 
 typedef enum {
     Starting,
@@ -53,9 +54,7 @@ typedef struct {
 typedef struct {
     FetchInfo fi;
     SquashReason sr;
-`ifdef KONATA_ENABLE
-    KonataId k_id;
-`endif
+    KonataId kid;
 } F2D deriving (Eq, FShow, Bits);
 
 typedef struct {
@@ -63,15 +62,11 @@ typedef struct {
     DecodedInst di;
     Operands ops;
     SquashReason sr;
-`ifdef KONATA_ENABLE
-    KonataId k_id;
-`endif
+    KonataId kid;
 } D2E deriving (Eq, FShow, Bits);
 
 typedef struct {
     DecodedInst di;
     SquashReason sr;
-`ifdef KONATA_ENABLE
-    KonataId k_id;
-`endif
+    KonataId kid;
 } E2W deriving (Eq, FShow, Bits);

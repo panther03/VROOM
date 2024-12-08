@@ -4,10 +4,12 @@ import SpecialFIFOs::*;
 import MemTypes::*;
 import XRUtil::*;
 import VROOMTypes::*;
+import KonataHelper::*;
 
 typedef struct {
     Maybe#(ExcResult) ru;
     Bool wr;
+    KonataId kid;
 } Stage1Result deriving (Bits);
 
 typedef struct {
@@ -15,6 +17,7 @@ typedef struct {
     Bit#(32) rv2;
     Bit#(32) rv3;
     Bit#(32) inst;
+    KonataId kid;
 } MemRequest deriving (Bits);
 
 typedef struct { Bit#(2) size; Bit#(2) offset; } ReadBusiness deriving (Eq, FShow, Bits);
@@ -30,6 +33,7 @@ function Bit#(32) swap32(Bit#(32) x);
 endfunction
 
 module mkMemUnit#(
+    KonataIntf konataHelper,
     function Action putDMemReq(DMemReq r),
     function ActionValue#(DMemResp) getDMemResp
 )(MemUnit);
@@ -42,6 +46,7 @@ module mkMemUnit#(
 
     rule getMemoryResponse;
         let stage1_res = stage1.first(); stage1.deq();
+        konataHelper.stageInst(stage1_res.kid, "Xm2");
         if (!isValid(stage1_res.ru)) begin
             let business = currBusiness.first(); currBusiness.deq();
             DMemResp resp <- getDMemResp();
@@ -96,7 +101,8 @@ module mkMemUnit#(
                     data: ?,
                     ecause: tagged Valid(ecause_UNA)
                 },
-                wr: isStore
+                wr: isStore,
+                kid: m.kid
             });
         end else if (isStore) begin
             storeQueue.enq(req);
@@ -108,7 +114,8 @@ module mkMemUnit#(
                         data: swap32(storeQueue.first.data),
                         ecause: tagged Invalid
                     },
-                    wr: isStore
+                    wr: isStore,
+                    kid: m.kid
                 });
             end else begin
                 putDMemReq(req);
@@ -118,7 +125,8 @@ module mkMemUnit#(
                 });    
                 stage1.enq(Stage1Result {
                     ru: tagged Invalid,
-                    wr: isStore
+                    wr: isStore,
+                    kid: m.kid
                 });
             end
         end 

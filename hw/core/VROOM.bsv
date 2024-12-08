@@ -1,5 +1,4 @@
-`define KONATA_ENABLE
-//`define DEBUG_ENABLE
+`include "BuildDefs.bsv"
 `include "Logging.bsv"
 
 import FIFO::*;
@@ -8,14 +7,9 @@ import SpecialFIFOs::*;
 import RegFile::*;
 import ConfigReg::*;
 import Vector::*;
-`ifdef KONATA_ENABLE
 import KonataHelper::*;
-`endif
 import Printf::*;
 import Ehr::*;
-//import BranchUnit::*;
-//import Alu::*;
-//import MemUnit::*;
 import MemTypes::*;
 import RegFile::*;
 import Scoreboard::*;
@@ -57,7 +51,6 @@ module mkVROOM (VROOMIfc);
     VROOMFsm fsm <- mkVROOMFsm();
     ControlRegs crs <- mkCRS;
 
-
     ////////////////////////////////
     // Stages + Functional Units //
     //////////////////////////////
@@ -97,10 +90,17 @@ module mkVROOM (VROOMIfc);
     Cache32 dCache <- mkCache32;
 
 
+    /////////////////////
+    // Konata/Logging //
+    ///////////////////
+    KonataIntf konataHelper <- mkKonata;
+
+
     ////////////////////
     // General rules //
     //////////////////
     rule init if (fsm.getState() == Starting);
+        konataHelper.init("konata.log");
         fsm.trs_Start();
     endrule
     
@@ -115,7 +115,7 @@ module mkVROOM (VROOMIfc);
     // bus requestors explicit using annotations.
     // Right now, the performance (i.e. prioritizing data over fetch) is at
     // the whim of BSC.
-    
+
     function Action putIMemReq(IMemReq r);
     action
         // Not using paging and in upper 3GB
@@ -216,6 +216,7 @@ module mkVROOM (VROOMIfc);
    
     fetch <- mkFetch(
         fsm,
+        konataHelper,
         f2d,
         putIMemReq
     );
@@ -227,11 +228,13 @@ module mkVROOM (VROOMIfc);
         fetch.currentEpoch
     );
     mu <- mkMemUnit(
+        konataHelper,
         putDMemReq,
         getDMemResp
     );
     decode <- mkDecode(
         fsm,
+        konataHelper,
         f2d,
         d2e,
         fromImem,
@@ -239,6 +242,7 @@ module mkVROOM (VROOMIfc);
     );
     execute <- mkExecute(
         fsm,
+        konataHelper,
         d2e,
         e2w,
         fetch.currentEpoch,
@@ -249,6 +253,7 @@ module mkVROOM (VROOMIfc);
     );
     commit <- mkCommit(
         fsm,
+        konataHelper,
         e2w,
         decode.freeRegister,
         decode.writeRf,

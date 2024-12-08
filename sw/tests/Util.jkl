@@ -1,21 +1,26 @@
-#include "<ll>/Rtl.hjk"
+#DEFINE XR_ROM_START 0xFFFE0000
 
 PrintAddr : ^UBYTE = CAST 0xE000FFF0 TO ^UBYTE
 ExitAddr : ^UWORD = CAST 0xE000FFF8 TO ^UWORD
 
-EXTERN FN Main ()
+EXTERN FN Main () : UWORD
 EXTERN _data : UBYTE
 EXTERN _data_size : UBYTE
-EXTERN _text_szie : UBYTE
+EXTERN _text_size : UBYTE
 
-FN Setup() : UWORD
-    RtlCopyBytes(
-        &_data,
-        &_text_size + XR_ROM_START,
-        CAST &_data_size TO UWORD
-    )
+FN SetupAndMain() : UWORD
 
-    return Main()
+    dst := &_data
+    src := &_text_size + XR_ROM_START
+    cnt := CAST &_data_size TO UWORD
+    WHILE cnt > 0 DO
+        dst^ = src^
+        dst += 1
+        src += 1
+        cnt -= 1
+    END
+
+    RETURN Main()
 END
 
 FN SimPutc (

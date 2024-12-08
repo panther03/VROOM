@@ -11,12 +11,12 @@ BUILD_DIR = $(realpath .)/build
 sim:
 	@mkdir -p $(BUILD_DIR)/hw
 	make -f hw.mk BUILD_DIR=$(BUILD_DIR)/hw BINARY_NAME=Sim
-	cp -r hw/mem/*.mem $(BUILD_DIR)/hw
+#	cp -r hw/mem/*.mem $(BUILD_DIR)/hw
 
 syn:
 	@mkdir -p $(BUILD_DIR)/hw
 	make -f hw.mk BUILD_DIR=$(BUILD_DIR)/hw BINARY_NAME=TopCore verilog
-	cp -r hw/mem/*.mem $(BUILD_DIR)/hw
+#	cp -r hw/mem/*.mem $(BUILD_DIR)/hw
 
 app: compiler
 	@mkdir -p $(BUILD_DIR)/sw

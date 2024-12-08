@@ -1,4 +1,4 @@
 {
-    "bluespec.bsc_flags": "--aggressive-conditions --show-schedule -p +:hw/core:hw/mem:hw/top:hw/tb:hw/util",
+    "bluespec.bsc_flags": "--aggressive-conditions --show-schedule -p +:hw/:hw/core:hw/mem:hw/top:hw/tb:hw/util",
     "bluespec.bsc_cwd": ""
 }

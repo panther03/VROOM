@@ -1,6 +1,7 @@
 import MemTypes::*;
 import VROOMTypes::*;
 import VROOMFsm::*;
+import KonataHelper::*;
 import FIFO::*;
 import Ehr::*;
 
@@ -11,6 +12,7 @@ endinterface
 
 module mkFetch #(
     VROOMFsm fsm,
+    KonataIntf konataHelper,
     FIFO#(F2D) f2d,
     function Action putIMemReq(IMemReq r)
 )(FetchIntf);
@@ -25,13 +27,18 @@ module mkFetch #(
         let req = IMemReq { addr: pc[0][31:4] };
         putIMemReq(req);
 
+        let kid <- konataHelper.declareInst(tagged Invalid);
+        konataHelper.stageInst(kid, "F");
+        konataHelper.labelInstLeft(kid, $format("PC=%08x", pc[0]));
+
         f2d.enq(F2D {
             fi: FetchInfo {
                 pc: pc[0],       // Current PC
                 // npc: pc_next, // Next PC
                 epoch: epoch[0]
             },
-            sr: None // TODO misalignment exception
+            sr: None, // TODO misalignment exception
+            kid: kid
         });
     endrule
 

@@ -9,6 +9,7 @@ import VROOMTypes::*;
 import VROOMFsm::*;
 import Scoreboard::*;
 import RegFile::*;
+import KonataHelper::*;
 
 interface DecodeIntf;
     method Action freeRegister(Bit#(5) rd);
@@ -17,6 +18,7 @@ endinterface
 
 module mkDecode #(
     VROOMFsm fsm,
+    KonataIntf konataHelper,
     FIFO#(F2D) f2d,
     FIFO#(D2E) d2e,
     FIFO#(IMemResp) fromImem,
@@ -68,10 +70,14 @@ module mkDecode #(
             let rv2 = (t || rs2 != 5'h0) ? rf.sub(rs2) : 32'h0;
             let rv3 = (t || rs3 != 5'h0) ? rf.sub(rs3) : 32'h0;
 
-            let rd = fromMaybe(?, dinst.rd);
+            let rd = fromMaybe(5'h0, dinst.rd);
             if (isValid(dinst.rd) && rd != 5'h0) begin
                 markReg.wset(rd);
             end
+
+            konataHelper.stageInst(f2dResult.kid, "D");
+            // TODO more informative debugging info here
+            konataHelper.labelInstLeft(f2dResult.kid, $format(" | WR = %d; RS=[%08x,%08x,%08x]", rd, rv1, rv2, rv3));
 
             d2e.enq(D2E {
                 fi: f2dResult.fi,
@@ -81,8 +87,11 @@ module mkDecode #(
                     rv2: rv2,
                     rv3: rv3
                 },
-                sr: dinst.legal ? None : DecodeInvalid
+                sr: dinst.legal ? None : DecodeInvalid,
+                kid: f2dResult.kid
             });
+        end else begin
+            konataHelper.stageInst(f2dResult.kid, "Ds");
         end
     endrule
 

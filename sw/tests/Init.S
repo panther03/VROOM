@@ -1,6 +1,6 @@
 .section text
 
-.extern Main
+.extern SetupAndMain
 .extern SimExit
 
 // vector 0 - nothing
@@ -76,7 +76,7 @@ FwReset:
 
     li   sp, 0x400
 
-    jal Setup
+    jal SetupAndMain
 
     jal SimExit
 

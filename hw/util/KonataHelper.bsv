@@ -1,115 +1,108 @@
+`include "BuildDefs.bsv"
 
+import FIFO::*;
+
+`ifdef KONATA_ENABLE
 typedef Bit#(48) KonataId; 
 typedef Bit#(8) ThreadId;
+`else
+typedef void KonataId;
+typedef void ThreadId;
+`endif
 
-// function Action konataInit();
-//     action 
-//         $display("[KONATA]Kanata\t0004");
-//         $display("[KONATA]C=\t1");
-//     endaction
-// endfunction
+interface KonataIntf;
+    method Action init(String logpath);
+    method ActionValue#(KonataId) declareInst(Maybe#(ThreadId) tid);
+    method Action commitInst(KonataId kid);
+    method Action squashInst(KonataId kid);
+    method Action stageInst(KonataId kid, String stage);
+    method Action labelInstLeft(KonataId kid, Fmt f);
+    method Action labelInstHover(KonataId kid, Fmt f);
+endinterface
 
+`ifdef KONATA_ENABLE
+// Konata-enabled implementation
+module mkKonata (KonataIntf);
+    Reg#(KonataId) allCtr <- mkReg(0);
+    Reg#(KonataId) commitCtr <- mkReg(0);
+    Reg#(Bool) inited <- mkReg(False);
+    let lfh <- mkReg(InvalidFile);
 
-function Action konataTic(File f);
-    action 
-        $fdisplay(f, "C\t1");
-    endaction
-endfunction
+    FIFO#(KonataId) committed <- mkFIFO;
+    FIFO#(KonataId) squashed <- mkFIFO;
+    
+    rule tick if (inited);
+        $fdisplay(lfh, "C\t1");
+    endrule
 
-function ActionValue#(KonataId) declareKonataInst(File f, Reg#(KonataId) konataCtr,ThreadId tid);
-    actionvalue
-        konataCtr <= konataCtr + 1;
-        $fdisplay(f,"I\t%d\t%d\t%d",konataCtr,konataCtr,tid);
-        return konataCtr;
-    endactionvalue
-endfunction
+    rule doSquash if (inited);
+        let kid = squashed.first(); squashed.deq();
+        $fdisplay(lfh, "R\t%d\t%d\t%d", kid, 0, 1);
+    endrule
 
-function ActionValue#(KonataId) fetch1Konata(File f, Reg#(KonataId) konataCtr,ThreadId tid);
-    // Include the declaration of the instr
-    actionvalue
-        konataCtr <= konataCtr + 1;
-        $fdisplay(f,"I\t%d\t%d\t%d",konataCtr,konataCtr,tid);
-        $fdisplay(f,"S\t%d\t%d\t%s",konataCtr,0,"F");
-        return konataCtr;
-    endactionvalue
-endfunction
+    rule doCommit if (inited);
+        let kid = committed.first(); committed.deq();
+        commitCtr <= commitCtr + 1;
+        $fdisplay(lfh, "R\t%d\t%d\t%d", kid, commitCtr, 0);
+    endrule
 
-function ActionValue#(KonataId) nfetchKonata(File f, Reg#(KonataId) konataCtr,ThreadId tid, Integer k);
-    // Return the first id of the consecutive k id allocated
-    actionvalue
-        konataCtr <= konataCtr + fromInteger(k);
-        for (Integer j = 0; j < k; j = j + 1) begin 
-            $fdisplay(f,"S\t%d\t%d\t%s",konataCtr + fromInteger(j),0,"F");
-        end
-        return konataCtr;
-    endactionvalue
-endfunction
+    method Action init(String logPath) if (!inited);
+        let f <- $fopen(logPath, "w");
+        lfh <= f;
+        inited <= True;
+        $fwrite(f, "Kanata\t0004\nC=\t1\n");
+    endmethod
 
-function Action decodeKonata(File f, KonataId konataCtr);
-    action
-        // $display("E\t%d\t%d\t%s",konataCtr,0,"F");
-        $fdisplay(f,"S\t%d\t%d\t%s",konataCtr,0,"D");
-    endaction
-endfunction
-function Action issueKonata(File f, KonataId konataCtr);
-    action
-        $fdisplay(f,"S\t%d\t%d\t%s",konataCtr,0,"I");
-    endaction
-endfunction
-function Action executeKonata(File f, KonataId konataCtr);
-    action
-        // $display("E\t%d\t%d\t%s",konataCtr,0,"D");
-        $fdisplay(f,"S\t%d\t%d\t%s",konataCtr,0,"E");
-    endaction
-endfunction
-function Action memoryKonata(File f, KonataId konataCtr);
-    action
-        $fdisplay(f,"S\t%d\t%d\t%s",konataCtr,0,"M");
-    endaction
-endfunction
-function Action writebackKonata(File f, KonataId konataCtr);
-    action
-        $fdisplay(f,"S\t%d\t%d\t%s",konataCtr,0,"W");
-    endaction
-endfunction
+    method ActionValue#(KonataId) declareInst(Maybe#(ThreadId) tid) if (inited);
+        let tidM = fromMaybe(0, tid);
+        allCtr <= allCtr + 1;
+        $fdisplay(lfh,"I\t%d\t%d\t%d",allCtr,allCtr,tid);
+        return allCtr;
+    endmethod
 
-function Action squashKonata(File f, KonataId konataCtr);
-    action
-        // Squash have id 0
-        $fdisplay(f,"R\t%d\t%d\t%d", konataCtr, 0, 1);
-    endaction
-endfunction
+    method Action squashInst(KonataId kid) if (inited);
+        squashed.enq(kid);
+    endmethod
 
-function Action commitKonata(File f, KonataId konataCtr, Reg#(KonataId) konataCmt);
-    action
-        konataCmt <= konataCmt + 1;
-//        $display("[KONATA]E\t%d\t%d\t%s",konataCtr,0,"W");
-        $fdisplay(f,"R\t%d\t%d\t%d", konataCtr, konataCmt,0);
-    endaction
-endfunction
+    method Action commitInst(KonataId kid) if (inited);
+        committed.enq(kid);
+    endmethod
 
-function Action nCommitKonata(File f, KonataId konataCtr, Reg#(KonataId) konataCmt, Integer n);
-    action
-        konataCmt <= konataCmt + 4;
-//        $display("[KONATA]E\t%d\t%d\t%s",konataCtr,0,"W");   
-        for (Integer j = 0; j < n; j = j + 1) begin 
-            $fdisplay(f,"R\t%d\t%d\t%d",konataCtr + fromInteger(j),konataCmt+fromInteger(j),0);
-        end
-    endaction
-endfunction
+    method Action stageInst(KonataId kid, String stage) if (inited);
+        $fdisplay(lfh,"S\t%d\t%d\t%s", kid, 0, stage);
+    endmethod
 
-function Action labelKonataLeft(File f, KonataId konataCtr, Fmt s);
-    action
-        // Squash have id 0
-        $fdisplay(f, "L\t%d\t%d\t", konataCtr, 0, s);
-    endaction
-endfunction
-function Action labelKonataMouse(File f, KonataId konataCtr, Fmt s);
-    action
-        // Squash have id 0
-        $fdisplay(f, "L\t%d\t%d\t", konataCtr, 1, s);
-    endaction
-endfunction
+    method Action labelInstLeft(KonataId kid, Fmt f) if (inited);
+        $fdisplay(lfh, "L\t%d\t%d\t", kid, 0, f);
+    endmethod
 
+    method Action labelInstHover(KonataId kid, Fmt f) if (inited);
+        $fdisplay(lfh, "L\t%d\t%d\t", kid, 1, f);
+    endmethod
+endmodule
+`else
+// Dummy implementation
+module mkKonata (KonataIntf);
+    method Action init(String logPath);
+    endmethod
 
+    method ActionValue#(KonataId) declareInst(Maybe#(ThreadId) tid);
+        return ?;
+    endmethod
 
+    method Action squashInst(KonataId kid);
+    endmethod
+
+    method Action commitInst(KonataId kid);
+    endmethod
+
+    method Action stageInst(KonataId kid, String stage);
+    endmethod
+
+    method Action labelInstLeft(KonataId kid, Fmt f);
+    endmethod
+
+    method Action labelInstHover(KonataId kid, Fmt f);
+    endmethod
+endmodule
+`endif

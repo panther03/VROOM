@@ -1,4 +1,4 @@
-#INCLUDE "<inc>/util.hjk"
+#INCLUDE "<inc>/Util.hjk"
 
 FN Main () : UWORD
     s := "Hello, world!\n"

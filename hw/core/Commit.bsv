@@ -4,6 +4,7 @@ import Scoreboard::*;
 import XRUtil::*;
 import RegFile::*;
 import FIFO::*;
+import KonataHelper::*;
 
 import MemUnit::*;
 import BranchUnit::*;
@@ -14,6 +15,7 @@ endinterface
 
 module mkCommit #(
     VROOMFsm fsm,
+    KonataIntf konataHelper,
     FIFO#(E2W) e2w,
     function Action freeRegister(Bit#(5) rd),
     function Action writeRf(Bit#(5) rd, Bit#(32) val),
@@ -51,8 +53,8 @@ module mkCommit #(
 
         let commitOk = !earlyPoison && !isValid(finalEcause);
 
+        let rd = fromMaybe(?, e2wResult.di.rd);
         if (isValid(e2wResult.di.rd)) begin
-            let rd = fromMaybe(?, e2wResult.di.rd);
             if (commitOk) begin
                 writeRf(rd, ru.data);
             end
@@ -65,6 +67,15 @@ module mkCommit #(
         
         if (isValid(finalEcause)) begin
             // exception handling, TODO
+            konataHelper.squashInst(e2wResult.kid);
+        end
+
+        if (commitOk) begin
+            konataHelper.stageInst(e2wResult.kid, "W");
+            konataHelper.commitInst(e2wResult.kid);
+            if (isValid(e2wResult.di.rd)) begin
+                konataHelper.labelInstLeft(e2wResult.kid, $format(" | RF [%d]=%08x", rd, ru.data));
+            end
         end
     endrule
 endmodule
