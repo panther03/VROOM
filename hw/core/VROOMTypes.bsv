@@ -2,23 +2,18 @@ import Vector::*;
 import XRUtil::*;
 
 typedef struct {
-    // Current PC
+    // Current PC (address of executing instruction)
     Bit#(32) pc;
-    // Previous PC
-    Bit#(32) ppc;
+    // Next PC -- do we even need this?
+    // Bit#(32) npc;
     // Epoch (for squashing branches)
     Bit#(1) epoch;
 } FetchInfo deriving (Eq, FShow, Bits);
 
 typedef struct {
-    Bit#(5) rs1;
-    Bit#(5) rs2;
-    Bit#(5) rd;
-} RegisterUsage deriving (Eq, FShow, Bits);
-
-typedef struct {
-    Bit#(32) rv1;
-    Bit#(32) rv2;
+    Maybe#(Bit#(32)) rv1;
+    Maybe#(Bit#(32)) rv2;
+    Maybe#(Bit#(32)) rv3;
 } Operands deriving (Eq, FShow, Bits);
 
 /////////////////////////
@@ -34,26 +29,15 @@ typedef struct {
 
 typedef struct {
     FetchInfo fi;
-    Vector#(4, DecodedInst) dis;
-    Vector#(4, RegisterUsage) rus;
+    DecodedInst di;
+    Operands ops;
 `ifdef KONATA_ENABLE
     KonataId k_id;
 `endif
-} D2I deriving (Eq, FShow, Bits);
+} D2E deriving (Eq, FShow, Bits);
 
 typedef struct {
-    FetchInfo fi;
-    Vector#(4, DecodedInst) dis;
-    Vector#(4, Operands) ops;
-    Vector#(4, Bit#(5)) dests;
-`ifdef KONATA_ENABLE
-    KonataId k_id;
-`endif
-} I2E deriving (Eq, FShow, Bits);
-
-typedef struct {
-    Vector#(4, DecodedInst) dis;
-    Vector#(4, Bit#(5)) dests;
+    DecodedInst di;
     Bool poisoned;
 `ifdef KONATA_ENABLE
     KonataId k_id;

@@ -1,4 +1,4 @@
-// SINGLE CORE ASSOIATED CACHE -- stores words
+// TODO: ICache on XR architecture is not writable - make adjustments accordingly
 
 import BRAM::*;
 import FIFO::*;
@@ -146,9 +146,9 @@ module mkICache(ICache);
             let x <- cau.resp();
             if (x.isDirty) begin
                 // dirty line, need to evict and write to LLC
-                lineReqQ.enq(MainMemReq {
-                    write: 1'b1,
-                    addr: {x.tag, pa.index},
+                lineReqQ.enq(BusReq {
+                    byte_strobe: 4'hF,
+                    addr: {x.tag, pa.index, 4'h0},
                     data: x.data
                 });
                 state <= SendReq;
@@ -156,9 +156,9 @@ module mkICache(ICache);
                     $display("(cyc=%d) [Dirty Miss] Tag=%d Index=%d Offset=%d (Replace Tag)=%d", cyc, pa.tag, pa.index, pa.offset, x.tag);
                 end
             end else begin
-                lineReqQ.enq(MainMemReq {
-                    write: 1'b0,
-                    addr: currReq.req.addr[31:6],
+                lineReqQ.enq(BusReq {
+                    byte_strobe: 4'h0,
+                    addr: currReq.req.addr[31:2],
                     data: ?
                 });
                 if (debug) begin 
@@ -178,9 +178,9 @@ module mkICache(ICache);
         if (currReq.hit) begin
             $display("Sanity check failed, handling writeback for a hit request?");
         end
-        lineReqQ.enq(MainMemReq {
-            write: 1'b0,
-            addr: currReq.req.addr[31:6],
+        lineReqQ.enq(BusReq {
+            byte_strobe: 4'h0,
+            addr: currReq.req.addr[31:2],
             data: ?
         });
         state <= WaitDramResp;
@@ -217,7 +217,7 @@ module mkICache(ICache);
             end
             // StHit don't need to do anything
             StHit: begin
-                if (debug) $display("(cyc=%d) [St Hit    ] Tag=%d Index=%d Offset=%d WB=%d Data=%d", cyc, pa.tag, pa.index, pa.offset, e.data);
+                if (debug) $display("(cyc=%d) [St Hit    ] Tag=%d Index=%d Offset=%d WB=%d", cyc, pa.tag, pa.index, pa.offset);
                 currReqQ.enq(HitMissCacheReq{req: e, hit: True});
             end
             Miss: begin

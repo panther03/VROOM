@@ -11,7 +11,7 @@ import Vector::*;
 Bool debug = False;
 
 interface L1CAU;
-    method ActionValue#(HitMissType) req(CacheReq c);
+    method ActionValue#(HitMissType) req(DMemReq c);
     method ActionValue#(L1TaggedLine) resp;
     method Action update(L1LineIndex index, LineData data, L1LineTag tag, Bool dirty);
 endinterface
@@ -25,7 +25,7 @@ module mkL1CAU(L1CAU);
     BRAM1Port#(Bit#(7), Bool) dirtyStore <- mkBRAM1Server(cfg);
     FIFO#(L1LineTag) tagFifo <- mkFIFO;
     
-    method ActionValue#(HitMissType) req(CacheReq c);
+    method ActionValue#(HitMissType) req(DMemReq c);
         let pa = parseL1Address(c.addr);
         let tag = tagStore[pa.index];
         let valid = validStore[pa.index];
@@ -117,17 +117,17 @@ module mkL1CAU(L1CAU);
 endmodule
 
 typedef struct {
-    CacheReq req;
+    DMemReq req;
     Bool hit;
-} HitMissCacheReq deriving (Eq, FShow, Bits, Bounded);
+} HitMissDMemReq deriving (Eq, FShow, Bits, Bounded);
 
 // Notice the asymmetry in this interface, as mentioned in lecture.
 // The processor thinks in 32 bits, but the other side thinks in 512 bits.
 interface Cache32;
-    method Action putFromProc(CacheReq e);
+    method Action putFromProc(DMemReq e);
     method ActionValue#(Word) getToProc();
-    method ActionValue#(MainMemReq) getToMem();
-    method Action putFromMem(MainMemResp e);
+    method ActionValue#(BusReq) getToMem();
+    method Action putFromMem(BusResp e);
 endinterface
 
 (* synthesize *)
@@ -136,9 +136,9 @@ module mkCache32(Cache32);
     L1CAU cau <- mkL1CAU();
 
     FIFO#(Word) hitQ <- mkBypassFIFO;
-    FIFO#(HitMissCacheReq) currReqQ <- mkPipelineFIFO;
-    FIFO#(MainMemReq) lineReqQ <- mkFIFO;
-    FIFO#(MainMemResp) lineRespQ <- mkFIFO;
+    FIFO#(HitMissDMemReq) currReqQ <- mkPipelineFIFO;
+    FIFO#(BusReq) lineReqQ <- mkFIFO;
+    FIFO#(BusResp) lineRespQ <- mkFIFO;
 
     Reg#(CacheState) state <- mkReg(WaitCAUResp);
     Reg#(Bit#(32)) cyc <- mkReg(0);
@@ -167,9 +167,10 @@ module mkCache32(Cache32);
             let x <- cau.resp();
             if (x.isDirty) begin
                 // dirty line, need to evict and write to LLC
-                lineReqQ.enq(MainMemReq {
-                    write: 1'b1,
-                    addr: {x.tag, pa.index},
+                lineReqQ.enq(BusReq {
+                    byte_strobe: 4'hF,
+                    line_en: 1,
+                    addr: {x.tag, pa.index, 4'h0},
                     data: x.data
                 });
                 state <= SendReq;
@@ -177,9 +178,10 @@ module mkCache32(Cache32);
                     $display("(cyc=%d) [Dirty Miss] Tag=%d Index=%d Offset=%d (Replace Tag)=%d", cyc, pa.tag, pa.index, pa.offset, x.tag);
                 end
             end else begin
-                lineReqQ.enq(MainMemReq {
-                    write: 1'b0,
-                    addr: currReq.req.addr[31:6],
+                lineReqQ.enq(BusReq {
+                    byte_strobe: 4'h0,
+                    line_en: 1,
+                    addr: currReq.req.addr[31:2],
                     data: ?
                 });
                 if (debug) begin 
@@ -199,9 +201,9 @@ module mkCache32(Cache32);
         if (currReq.hit) begin
             $display("Sanity check failed, handling writeback for a hit request?");
         end
-        lineReqQ.enq(MainMemReq {
-            write: 1'b0,
-            addr: currReq.req.addr[31:6],
+        lineReqQ.enq(BusReq {
+            byte_strobe: 4'h0,
+            addr: currReq.req.addr[31:2],
             data: ?
         });
         state <= WaitDramResp;
@@ -244,25 +246,25 @@ module mkCache32(Cache32);
         state <= WaitCAUResp;
     endrule
 
-    method Action putFromProc(CacheReq e);
+    method Action putFromProc(DMemReq e);
         let hitMissResult <- cau.req(e);
         let pa = parseL1Address(e.addr);
         case (hitMissResult)
             LdHit: begin
                 if (debug) $display("(cyc=%d) [Load Hit  ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
-                currReqQ.enq(HitMissCacheReq{req: e, hit: True});
+                currReqQ.enq(HitMissDMemReq{req: e, hit: True});
             end
             // StHit don't need to do anything
             StHit: begin
                 if (debug) $display("(cyc=%d) [St Hit    ] Tag=%d Index=%d Offset=%d WB=%d Data=%d", cyc, pa.tag, pa.index, pa.offset, e.word_byte, e.data);
-                currReqQ.enq(HitMissCacheReq{req: e, hit: True});
+                currReqQ.enq(HitMissDMemReq{req: e, hit: True});
             end
             Miss: begin
                 if (debug) begin 
                     if (e.word_byte == 0) $display("(cyc=%d) [Load Miss ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
                     else $display("(cyc=%d) [St Miss   ] Tag=%d Index=%d Offset=%d WB=%d Data=%d", cyc, pa.tag, pa.index, pa.offset, e.word_byte, e.data);
                 end
-                currReqQ.enq(HitMissCacheReq{req: e, hit: False});
+                currReqQ.enq(HitMissDMemReq{req: e, hit: False});
             end
         endcase
     endmethod
@@ -271,11 +273,11 @@ module mkCache32(Cache32);
         hitQ.deq(); return hitQ.first();
     endmethod
         
-    method ActionValue#(MainMemReq) getToMem();
+    method ActionValue#(BusReq) getToMem();
         lineReqQ.deq(); return lineReqQ.first();
     endmethod
         
-    method Action putFromMem(MainMemResp e);
+    method Action putFromMem(BusResp e);
         lineRespQ.enq(e);
     endmethod
 endmodule

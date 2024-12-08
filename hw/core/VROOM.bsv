@@ -6,6 +6,7 @@ import FIFO::*;
 import FIFOF::*;
 import SpecialFIFOs::*;
 import RegFile::*;
+import ConfigReg::*;
 import RVUtil::*;
 import Vector::*;
 `ifdef KONATA_ENABLE
@@ -13,11 +14,18 @@ import KonataHelper::*;
 `endif
 import Printf::*;
 import Ehr::*;
-import BranchUnit::*;
-import Alu::*;
-import MemUnit::*;
+//import BranchUnit::*;
+//import Alu::*;
+//import MemUnit::*;
 import MemTypes::*;
+import RegFile::*;
+import Scoreboard::*;
 import VROOMTypes::*;
+import ControlRegs::*;
+import Fetch::*;
+
+import Cache32::*;
+import ICache::*;
 
 
 interface VROOMIfc;
@@ -28,15 +36,15 @@ endinterface
 /////////////////////
 // Implementation //
 ///////////////////
-typedef enum {L1I, L1D, IUNC, DUNC} BusAccOrigin;
+typedef enum {L1I, L1D, IUNC, DUNC} BusAccOrigin deriving (Bits, Eq);
 
 typedef struct {
     BusAccOrigin origin;
     Bit#(4) addr_low;
-} BusBusiness;
+} BusBusiness deriving (Bits);
 
 (* synthesize *)
-module mkVROOM #(Bool ctr_enable) (RVIfc);
+module mkVROOM #(Bool ctr_enable) (VROOMIfc);
     /////////////////////////
     // Interface with bus //
     ///////////////////////
@@ -59,53 +67,45 @@ module mkVROOM #(Bool ctr_enable) (RVIfc);
     Ehr#(2, Bit#(32)) pc <- mkEhr(32'h0);
     Ehr#(2, Bit#(1)) epoch <- mkEhr(1'h0);
 
-    MultiportRam#(4, Bit#(32)) rf <- mkMultiportRam(32'h0);
-    Reg#(Bit#(32)) sc <- mkReg(32'hFFFFFFFF);
-
-    Reg#(Bool) starting <- mkReg(True);
-    Reg#(Bool) offsetting <- mkReg(True);
-
-    RWire#(Vector#(4, Bit#(5))) sc_insert_dsts <- mkRWire;
-    RWire#(Vector#(4, Bit#(5))) sc_remove_dsts <- mkRWire;
-
-    Reg#(Bit#(32)) addr_offset <- mkReg(0);
+    RegFile#(Bit#(5), Bit#(32)) rf <- mkRegFile(5'h0, 5'd31);
+    Scoreboard sc <- mkScoreboardBoolFlags;
+    ControlRegs crs <- mkCRS;
 
     Reg#(Bit#(32)) insn_count <- mkReg(0);
+    Reg#(Bool) started <- mkReg(False); 
 
     ///////////////////////
     // Functional Units //
     /////////////////////
-    let memUnitInput = (interface MemUnitInput;
-        interface toDmem = toDmem;
-        interface fromDmem = fromDmem;
-        interface toMMIO = toMMIO;
-        interface fromMMIO = fromMMIO;
-    endinterface);
-    MemUnit mu <- mkMemUnit(memUnitInput, True);
-    let branchUnitInput = (interface BranchUnitInput;
-        interface extPC = pc; interface extEpoch = epoch; 
-    endinterface);
-    BranchUnit bu <- mkBranchUnit(branchUnitInput);
-    Alu alu1 <- mkAlu();
-    Alu alu2 <- mkAlu();
+    //let memUnitInput = (interface MemUnitInput;
+    //    interface toDmem = toDmem;
+    //    interface fromDmem = fromDmem;
+    //    interface toMMIO = toMMIO;
+    //    interface fromMMIO = fromMMIO;
+    //endinterface);
+    //MemUnit mu <- mkMemUnit(memUnitInput, True);
+    //let branchUnitInput = (interface BranchUnitInput;
+    //    interface extPC = pc; interface extEpoch = epoch; 
+    //endinterface);
+    //BranchUnit bu <- mkBranchUnit(branchUnitInput);
+    //Alu alu1 <- mkAlu();
+    //Alu alu2 <- mkAlu();
 
     //////////////////////
     // Pipeline stages //
     ////////////////////
-    FIFO#(F2D) f2d <- mkFIFO;
-    FIFO#(D2I) d2i <- mkFIFO;
-    FIFO#(I2E) i2e <- mkFIFO;
-    FIFO#(E2W) e2w <- mkFIFO;
+
+    
 
 
     ////////////
     // Rules //
     //////////
-    rule init if (offsetting);
-        offsetting <= False;
-        let req = IMem {byte_en: 0, addr: 0, data: ?};
-        toImem.enq(req);
-    endrule
+    //rule init if (offsetting);
+    //    offsetting <= False;
+    //    let req = IMem {byte_en: 0, addr: 0, data: ?};
+    //    toImem.enq(req);
+    //endrule
     
     ///////////////////////////////
     // Memory/Cache Interfacing //
@@ -114,15 +114,15 @@ module mkVROOM #(Bool ctr_enable) (RVIfc);
     function Action putIMemReq(IMemReq r);
     action
         // Not using paging and in upper 3GB
-        if (!crs.rd(CR_RS).M && r.addr[27:26] == 2'b11) begin
+        if (!crs.getCurrMode().m && r.addr[27:26] == 2'b11) begin
             toBus.enq(BusReq {
-                write: 0,
+                byte_strobe: 4'hF,
                 line_en: 1,
                 addr: {r.addr, 2'h0}
             });
             busTracker.enq(BusBusiness {
                 origin: IUNC,
-                addr: {r.addr[1:0], 2'b00}
+                addr_low: {r.addr[1:0], 2'b00}
             });
         end else begin
             iCache.putFromProc(r);
@@ -133,16 +133,16 @@ module mkVROOM #(Bool ctr_enable) (RVIfc);
     function Action putDMemReq(DMemReq r);
     action
         // Not using paging and in upper 3GB
-        if (!crs.rd(CR_RS).M && r.addr[29:28] == 2'b11) begin
+        if (!crs.getCurrMode().m && r.addr[29:28] == 2'b11) begin
             toBus.enq(BusReq {
-                byte_strobe: word_byte,
+                byte_strobe: r.word_byte,
                 line_en: 0,
                 addr: r.addr,
-                data: r.data
+                data: {480'h0, r.data}
             });
             busTracker.enq(BusBusiness {
                 origin: DUNC,
-                addr: {r.addr[3:0]}
+                addr_low: {r.addr[3:0]}
             });
         end else begin
             dCache.putFromProc(r);
@@ -173,11 +173,11 @@ module mkVROOM #(Bool ctr_enable) (RVIfc);
             L1I: iCache.putFromMem(busResp);
             L1D: dCache.putFromMem(busResp);
             IUNC: begin
-                Vector#(IMemResp,4) iMemResps = unpack(busResp);
+                Vector#(4, IMemResp) iMemResps = unpack(busResp);
                 fromImem.enq(iMemResps[busBusiness.addr_low[3:2]]);
             end
             DUNC: begin
-                Vector#(DMemResp,16) dMemResps = unpack(busResp);
+                Vector#(16, DMemResp) dMemResps = unpack(busResp);
                 fromDmem.enq(dMemResps[busBusiness.addr_low[3:0]]);
             end
         endcase
@@ -203,6 +203,13 @@ module mkVROOM #(Bool ctr_enable) (RVIfc);
         let cacheReq <- dCache.getToMem();
         toBus.enq(cacheReq);
     endrule
+
+    FetchIntf fetch <- mkFetch(
+        started,
+        putIMemReq,
+        pc,
+        epoch
+    );
 
     method ActionValue#(BusReq) getBusReq();
 		toBus.deq();

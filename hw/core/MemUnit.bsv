@@ -1,4 +1,5 @@
 import FIFO::*;
+import FIFOF::*;
 import SpecialFIFOs::*;
 import MemTypes::*;
 
@@ -7,46 +8,25 @@ typedef Bit#(32) MemResult;
 typedef struct {
     Bit#(32) rv1;
     Bit#(32) rv2;
-    Bit#(32) imm;
+    Bit#(32) rv3;
     Bit#(32) inst;
-    Bit#(3) funct3;
-    Bit#(32) pc;
-    Bit#(32) addr_offset;
 } MemRequest deriving (Bits);
 
-typedef struct { Bool we; Bool isUnsigned; Bit#(2) size; Bit#(2) offset; Bool mmio; } MemBusiness deriving (Eq, FShow, Bits);
-
-interface MemUnitInput;
-    interface FIFO#(Mem) toDmem;
-    interface FIFO#(Mem) toMMIO;
-    interface FIFO#(Mem) fromDmem;
-    interface FIFO#(Mem) fromMMIO;
-endinterface
+typedef struct { Bool we; Bit#(2) size; Bit#(2) offset; Bool mmio; } MemBusiness deriving (Eq, FShow, Bits);
 
 interface MemUnit;
     method ActionValue#(MemResult) deq();
     method Action enq(MemRequest m);
+    method Action commit();
 endinterface
 
-function Bool isMMIO(Bit#(32) addr);
-    /*Bool x = case (addr) 
-        32'hf000fff0: True;
-        32'hf000fff4: True;
-        32'hf000fff8: True;
-        default: False;
-    endcase;*/
-    // simplifying assumption
-    return addr[31:29] == 3'h7;
-endfunction
-
-module mkMemUnit#(MemUnitInput inIfc, Bool respOnStore)(MemUnit);
+module mkMemUnit#(
+    function Action putDMemReq(DMemReq r),
+    function ActionValue#(DMemResp) getDMemResp
+)(MemUnit);
     FIFO#(MemResult) results <- mkBypassFIFO;
     FIFO#(MemBusiness) currBusiness <- mkFIFO;
-
-    FIFO#(Mem) toDmem = inIfc.toDmem;
-    FIFO#(Mem) toMMIO = inIfc.toMMIO;
-    FIFO#(Mem) fromDmem = inIfc.fromDmem;
-    FIFO#(Mem) fromMMIO = inIfc.fromMMIO;
+    FIFOF#(DMemReq) storeQueue <- mkFIFOF1;
 
     rule getMemoryResponse;
         let business = currBusiness.first(); currBusiness.deq();
@@ -73,7 +53,12 @@ module mkMemUnit#(MemUnitInput inIfc, Bool respOnStore)(MemUnit);
     endrule
 
     method Action enq(MemRequest m);
-        let addr = m.rv1 + m.imm;
+        let fields = getInstFields(m.inst);
+        Bool regForm = (fields.op3l == op3l_REG);
+        let addr = m.rv1 + regForm ? (m.rv2 << fields.shamt5) : zeroExtend(fields.imm16);
+        // only store small immediate instructions have top bit of op3u set to 0
+        Bit#(32) val = !unpack(fields.op3u[2]) ? zeroExtend(fields.regC) : m.rv3;
+        
 		Bit#(2) offset = addr[1:0];
         addr = {addr[31:2], 2'b0};
         // Technical details for load byte/halfword/word
@@ -91,26 +76,8 @@ module mkMemUnit#(MemUnitInput inIfc, Bool respOnStore)(MemUnit);
         let req = Mem {byte_en : type_mem,
                     addr : addr,
                     data : data};
-        Bool mmio = False;
-`ifdef DEBUG_ENABLE
-            $display("[Execute] Memory, addr=%x", addr);
-`endif
-        if (isMMIO(addr)) begin 
-`ifdef DEBUG_ENABLE
-            $display("[Execute] MMIO", fshow(req));
-`endif
-            toMMIO.enq(req);
-`ifdef KONATA_ENABLE
-            labelKonataLeft(lfh,current_id, $format(" (MMIO)", fshow(req)));
-`endif
-            mmio = True;
-        end else begin 
-`ifdef KONATA_ENABLE
-            labelKonataLeft(lfh,current_id, $format(" (MEM)", fshow(req)));
-`endif
-            req.addr = req.addr + m.addr_offset;
-            toDmem.enq(req);
-        end
+
+        if
 
         currBusiness.enq(MemBusiness{
             isUnsigned: unpack(isUnsigned),
@@ -124,5 +91,11 @@ module mkMemUnit#(MemUnitInput inIfc, Bool respOnStore)(MemUnit);
     method ActionValue#(MemResult) deq();
         let res = results.first; results.deq();
         return res;
+    endmethod
+
+    method Action commit();
+        let lastStore = storeQueue.first;
+        storeQueue.deq();
+
     endmethod
 endmodule

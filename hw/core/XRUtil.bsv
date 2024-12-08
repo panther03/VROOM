@@ -103,7 +103,7 @@ typedef enum {
     LoadStore,
     Control,
     ALU
-} FunctUnit deriving (FShow, Bits);
+} FunctUnit deriving (Eq, FShow, Bits);
 
 // rs1, rs2, rs3 and rd are used instead of RA, RB, and RC,
 // because RA is sometimes a destination and sometimes a source.
@@ -116,7 +116,7 @@ typedef struct {
     Maybe#(Bit#(5)) rd;
     Bit#(32) inst;
     FunctUnit fu;
-} DecodedInst deriving (FShow);
+} DecodedInst deriving (Eq, FShow, Bits);
 
 function Bool isLegal(InstFields fields);
     return case (fields.op3l) 
