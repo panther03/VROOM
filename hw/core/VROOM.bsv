@@ -7,7 +7,6 @@ import FIFOF::*;
 import SpecialFIFOs::*;
 import RegFile::*;
 import ConfigReg::*;
-import RVUtil::*;
 import Vector::*;
 `ifdef KONATA_ENABLE
 import KonataHelper::*;
@@ -21,8 +20,15 @@ import MemTypes::*;
 import RegFile::*;
 import Scoreboard::*;
 import VROOMTypes::*;
+import VROOMFsm::*;
 import ControlRegs::*;
 import Fetch::*;
+import Decode::*; 
+import Execute::*; 
+import Commit::*; 
+import Alu::*;
+import BranchUnit::*;
+import MemUnit::*;
 
 import Cache32::*;
 import ICache::*;
@@ -44,7 +50,35 @@ typedef struct {
 } BusBusiness deriving (Bits);
 
 (* synthesize *)
-module mkVROOM #(Bool ctr_enable) (VROOMIfc);
+module mkVROOM (VROOMIfc);
+    ///////////////////////
+    // Global CPU state //
+    /////////////////////
+    VROOMFsm fsm <- mkVROOMFsm();
+    ControlRegs crs <- mkCRS;
+
+
+    ////////////////////////////////
+    // Stages + Functional Units //
+    //////////////////////////////
+    FetchIntf fetch;
+    DecodeIntf decode;
+    ExecuteIntf execute;
+    CommitIntf commit;
+
+    Alu alu;
+    BranchUnit bu;
+    MemUnit mu;
+
+
+    //////////////////
+    // Stage FIFOs //
+    ////////////////
+    FIFO#(F2D) f2d <- mkFIFO;
+    FIFO#(D2E) d2e <- mkFIFO;
+    FIFO#(E2W) e2w <- mkSizedFIFO(4);
+
+    
     /////////////////////////
     // Interface with bus //
     ///////////////////////
@@ -55,70 +89,42 @@ module mkVROOM #(Bool ctr_enable) (VROOMIfc);
     FIFO#(IMemResp) fromImem <- mkBypassFIFO;
     FIFO#(DMemResp) fromDmem <- mkBypassFIFO;
 
+
     /////////////////
     // Caches/TLB //
     ///////////////
     ICache iCache <- mkICache;
     Cache32 dCache <- mkCache32;
 
-    ////////////////
-    // CPU state //
-    //////////////
-    Ehr#(2, Bit#(32)) pc <- mkEhr(32'h0);
-    Ehr#(2, Bit#(1)) epoch <- mkEhr(1'h0);
 
-    RegFile#(Bit#(5), Bit#(32)) rf <- mkRegFile(5'h0, 5'd31);
-    Scoreboard sc <- mkScoreboardBoolFlags;
-    ControlRegs crs <- mkCRS;
-
-    Reg#(Bit#(32)) insn_count <- mkReg(0);
-    Reg#(Bool) started <- mkReg(False); 
-
-    ///////////////////////
-    // Functional Units //
-    /////////////////////
-    //let memUnitInput = (interface MemUnitInput;
-    //    interface toDmem = toDmem;
-    //    interface fromDmem = fromDmem;
-    //    interface toMMIO = toMMIO;
-    //    interface fromMMIO = fromMMIO;
-    //endinterface);
-    //MemUnit mu <- mkMemUnit(memUnitInput, True);
-    //let branchUnitInput = (interface BranchUnitInput;
-    //    interface extPC = pc; interface extEpoch = epoch; 
-    //endinterface);
-    //BranchUnit bu <- mkBranchUnit(branchUnitInput);
-    //Alu alu1 <- mkAlu();
-    //Alu alu2 <- mkAlu();
-
-    //////////////////////
-    // Pipeline stages //
     ////////////////////
-
+    // General rules //
+    //////////////////
+    rule init if (fsm.getState() == Starting);
+        fsm.trs_Start();
+    endrule
     
 
-
-    ////////////
-    // Rules //
-    //////////
-    //rule init if (offsetting);
-    //    offsetting <= False;
-    //    let req = IMem {byte_en: 0, addr: 0, data: ?};
-    //    toImem.enq(req);
-    //endrule
-    
     ///////////////////////////////
     // Memory/Cache Interfacing //
     /////////////////////////////
+
     // Interface seen by CPU
+    // TODO: these should probably be their own rules.
+    // This way, we can make the scheduling of different 
+    // bus requestors explicit using annotations.
+    // Right now, the performance (i.e. prioritizing data over fetch) is at
+    // the whim of BSC.
+    
     function Action putIMemReq(IMemReq r);
     action
         // Not using paging and in upper 3GB
         if (!crs.getCurrMode().m && r.addr[27:26] == 2'b11) begin
             toBus.enq(BusReq {
-                byte_strobe: 4'hF,
+                byte_strobe: 4'h0,
                 line_en: 1,
-                addr: {r.addr, 2'h0}
+                addr: {r.addr, 2'h0},
+                data: ?
             });
             busTracker.enq(BusBusiness {
                 origin: IUNC,
@@ -193,7 +199,7 @@ module mkVROOM #(Bool ctr_enable) (VROOMIfc);
         fromDmem.enq(cacheResp);
     endrule
 
-    (* descending_urgency = "handleICacheRequest, handleDCacheREquest" *)
+    (* descending_urgency = "handleICacheRequest, handleDCacheRequest" *)
     rule handleICacheRequest;
         let cacheReq <- iCache.getToMem();
         toBus.enq(cacheReq);
@@ -204,12 +210,56 @@ module mkVROOM #(Bool ctr_enable) (VROOMIfc);
         toBus.enq(cacheReq);
     endrule
 
-    FetchIntf fetch <- mkFetch(
-        started,
-        putIMemReq,
-        pc,
-        epoch
+    /////////////////////////
+    // Connect everything //
+    ///////////////////////
+   
+    fetch <- mkFetch(
+        fsm,
+        f2d,
+        putIMemReq
     );
+    alu <- mkAlu(
+        crs
+    );
+    bu <- mkBranchUnit(
+        fetch.redirect,
+        fetch.currentEpoch
+    );
+    mu <- mkMemUnit(
+        putDMemReq,
+        getDMemResp
+    );
+    decode <- mkDecode(
+        fsm,
+        f2d,
+        d2e,
+        fromImem,
+        crs.getCurrMode
+    );
+    execute <- mkExecute(
+        fsm,
+        d2e,
+        e2w,
+        fetch.currentEpoch,
+        mu,
+        bu,
+        alu,
+        crs
+    );
+    commit <- mkCommit(
+        fsm,
+        e2w,
+        decode.freeRegister,
+        decode.writeRf,
+        mu,
+        bu,
+        alu
+    );
+
+    //////////////////
+    // Bus Methods //
+    ////////////////
 
     method ActionValue#(BusReq) getBusReq();
 		toBus.deq();

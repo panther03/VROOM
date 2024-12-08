@@ -20,7 +20,6 @@ module mkL1ICAU(L1ICAU);
     Vector#(TExp#(7), Reg#(L1LineTag)) tagStore <- replicateM(mkReg(0));
     Vector#(TExp#(7), Reg#(Bool)) validStore <- replicateM(mkReg(False));
     BRAM_Configure cfg = defaultValue();
-    cfg.loadFormat = tagged Binary "zero.mem";
     BRAM1Port#(Bit#(7), LineData) dataStore <- mkBRAM1Server(cfg);
     BRAM1Port#(Bit#(7), Bool) dirtyStore <- mkBRAM1Server(cfg);
     FIFO#(L1LineTag) tagFifo <- mkFIFO;
@@ -149,7 +148,8 @@ module mkICache(ICache);
                 lineReqQ.enq(BusReq {
                     byte_strobe: 4'hF,
                     addr: {x.tag, pa.index, 4'h0},
-                    data: x.data
+                    data: x.data,
+                    line_en: 1'b1
                 });
                 state <= SendReq;
                 if (debug) begin 
@@ -158,8 +158,9 @@ module mkICache(ICache);
             end else begin
                 lineReqQ.enq(BusReq {
                     byte_strobe: 4'h0,
-                    addr: currReq.req.addr[31:2],
-                    data: ?
+                    addr: {currReq.req.addr, 2'h0},
+                    data: ?,
+                    line_en: 1'b1
                 });
                 if (debug) begin 
                     $display("(cyc=%d) [Clean Miss] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
@@ -180,8 +181,9 @@ module mkICache(ICache);
         end
         lineReqQ.enq(BusReq {
             byte_strobe: 4'h0,
-            addr: currReq.req.addr[31:2],
-            data: ?
+            addr: {currReq.req.addr, 2'h0},
+            data: ?,
+            line_en: 1'b1
         });
         state <= WaitDramResp;
     endrule

@@ -1,0 +1,305 @@
+#INCLUDE "<inc>/util.hjk"
+
+FN ArrEquals(
+    IN a : ^UWORD,
+    IN b : ^UWORD
+) : UWORD
+    i := 0
+    j := 0
+    WHILE i < 16 DO
+        WHILE j < 16 DO
+            IF a[(i << 4) + j] != b[(i << 4) + j] THEN 
+                RETURN 0
+            END
+            j += 1
+        END
+        i += 1
+    END
+    RETURN 1
+END
+
+A : UWORD[16][16]
+B : UWORD[16][16]
+C : UWORD[16][16]
+Expected : UWORD[16][16]
+
+FN Main () : UWORD
+    i := 0
+    WHILE i < 16 DO
+        Expected[0][i] = 0
+        i += 1        
+    END
+    Expected[1][0] = 120
+    Expected[1][1] = 136
+    Expected[1][2] = 152
+    Expected[1][3] = 168
+    Expected[1][4] = 184
+    Expected[1][5] = 200
+    Expected[1][6] = 216
+    Expected[1][7] = 232
+    Expected[1][8] = 248
+    Expected[1][9] = 264
+    Expected[1][10] = 280
+    Expected[1][11] = 296
+    Expected[1][12] = 312
+    Expected[1][13] = 328
+    Expected[1][14] = 344
+    Expected[1][15] = 360
+    Expected[2][0] = 240
+    Expected[2][1] = 272
+    Expected[2][2] = 304
+    Expected[2][3] = 336
+    Expected[2][4] = 368
+    Expected[2][5] = 400
+    Expected[2][6] = 432
+    Expected[2][7] = 464
+    Expected[2][8] = 496
+    Expected[2][9] = 528
+    Expected[2][10] = 560
+    Expected[2][11] = 592
+    Expected[2][12] = 624
+    Expected[2][13] = 656
+    Expected[2][14] = 688
+    Expected[2][15] = 720
+    Expected[3][0] = 360
+    Expected[3][1] = 408
+    Expected[3][2] = 456
+    Expected[3][3] = 504
+    Expected[3][4] = 552
+    Expected[3][5] = 600
+    Expected[3][6] = 648
+    Expected[3][7] = 696
+    Expected[3][8] = 744
+    Expected[3][9] = 792
+    Expected[3][10] = 840
+    Expected[3][11] = 888
+    Expected[3][12] = 936
+    Expected[3][13] = 984
+    Expected[3][14] = 1032
+    Expected[3][15] = 1080
+    Expected[4][0] = 480
+    Expected[4][1] = 544
+    Expected[4][2] = 608
+    Expected[4][3] = 672
+    Expected[4][4] = 736
+    Expected[4][5] = 800
+    Expected[4][6] = 864
+    Expected[4][7] = 928
+    Expected[4][8] = 992
+    Expected[4][9] = 1056
+    Expected[4][10] = 1120
+    Expected[4][11] = 1184
+    Expected[4][12] = 1248
+    Expected[4][13] = 1312
+    Expected[4][14] = 1376
+    Expected[4][15] = 1440
+    Expected[5][0] = 600
+    Expected[5][1] = 680
+    Expected[5][2] = 760
+    Expected[5][3] = 840
+    Expected[5][4] = 920
+    Expected[5][5] = 1000
+    Expected[5][6] = 1080
+    Expected[5][7] = 1160
+    Expected[5][8] = 1240
+    Expected[5][9] = 1320
+    Expected[5][10] = 1400
+    Expected[5][11] = 1480
+    Expected[5][12] = 1560
+    Expected[5][13] = 1640
+    Expected[5][14] = 1720
+    Expected[5][15] = 1800
+    Expected[6][0] = 720
+    Expected[6][1] = 816
+    Expected[6][2] = 912
+    Expected[6][3] = 1008
+    Expected[6][4] = 1104
+    Expected[6][5] = 1200
+    Expected[6][6] = 1296
+    Expected[6][7] = 1392
+    Expected[6][8] = 1488
+    Expected[6][9] = 1584
+    Expected[6][10] = 1680
+    Expected[6][11] = 1776
+    Expected[6][12] = 1872
+    Expected[6][13] = 1968
+    Expected[6][14] = 2064
+    Expected[6][15] = 2160
+    Expected[7][0] = 840
+    Expected[7][1] = 952
+    Expected[7][2] = 1064
+    Expected[7][3] = 1176
+    Expected[7][4] = 1288
+    Expected[7][5] = 1400
+    Expected[7][6] = 1512
+    Expected[7][7] = 1624
+    Expected[7][8] = 1736
+    Expected[7][9] = 1848
+    Expected[7][10] = 1960
+    Expected[7][11] = 2072
+    Expected[7][12] = 2184
+    Expected[7][13] = 2296
+    Expected[7][14] = 2408
+    Expected[7][15] = 2520
+    Expected[8][0] = 960
+    Expected[8][1] = 1088
+    Expected[8][2] = 1216
+    Expected[8][3] = 1344
+    Expected[8][4] = 1472
+    Expected[8][5] = 1600
+    Expected[8][6] = 1728
+    Expected[8][7] = 1856
+    Expected[8][8] = 1984
+    Expected[8][9] = 2112
+    Expected[8][10] = 2240
+    Expected[8][11] = 2368
+    Expected[8][12] = 2496
+    Expected[8][13] = 2624
+    Expected[8][14] = 2752
+    Expected[8][15] = 2880
+    Expected[9][0] = 1080
+    Expected[9][1] = 1224
+    Expected[9][2] = 1368
+    Expected[9][3] = 1512
+    Expected[9][4] = 1656
+    Expected[9][5] = 1800
+    Expected[9][6] = 1944
+    Expected[9][7] = 2088
+    Expected[9][8] = 2232
+    Expected[9][9] = 2376
+    Expected[9][10] = 2520
+    Expected[9][11] = 2664
+    Expected[9][12] = 2808
+    Expected[9][13] = 2952
+    Expected[9][14] = 3096
+    Expected[9][15] = 3240
+    Expected[10][0] = 1200
+    Expected[10][1] = 1360
+    Expected[10][2] = 1520
+    Expected[10][3] = 1680
+    Expected[10][4] = 1840
+    Expected[10][5] = 2000
+    Expected[10][6] = 2160
+    Expected[10][7] = 2320
+    Expected[10][8] = 2480
+    Expected[10][9] = 2640
+    Expected[10][10] = 2800
+    Expected[10][11] = 2960
+    Expected[10][12] = 3120
+    Expected[10][13] = 3280
+    Expected[10][14] = 3440
+    Expected[10][15] = 3600
+    Expected[11][0] = 1320
+    Expected[11][1] = 1496
+    Expected[11][2] = 1672
+    Expected[11][3] = 1848
+    Expected[11][4] = 2024
+    Expected[11][5] = 2200
+    Expected[11][6] = 2376
+    Expected[11][7] = 2552
+    Expected[11][8] = 2728
+    Expected[11][9] = 2904
+    Expected[11][10] = 3080
+    Expected[11][11] = 3256
+    Expected[11][12] = 3432
+    Expected[11][13] = 3608
+    Expected[11][14] = 3784
+    Expected[11][15] = 3960
+    Expected[12][0] = 1440
+    Expected[12][1] = 1632
+    Expected[12][2] = 1824
+    Expected[12][3] = 2016
+    Expected[12][4] = 2208
+    Expected[12][5] = 2400
+    Expected[12][6] = 2592
+    Expected[12][7] = 2784
+    Expected[12][8] = 2976
+    Expected[12][9] = 3168
+    Expected[12][10] = 3360
+    Expected[12][11] = 3552
+    Expected[12][12] = 3744
+    Expected[12][13] = 3936
+    Expected[12][14] = 4128
+    Expected[12][15] = 4320
+    Expected[13][0] = 1560
+    Expected[13][1] = 1768
+    Expected[13][2] = 1976
+    Expected[13][3] = 2184
+    Expected[13][4] = 2392
+    Expected[13][5] = 2600
+    Expected[13][6] = 2808
+    Expected[13][7] = 3016
+    Expected[13][8] = 3224
+    Expected[13][9] = 3432
+    Expected[13][10] = 3640
+    Expected[13][11] = 3848
+    Expected[13][12] = 4056
+    Expected[13][13] = 4264
+    Expected[13][14] = 4472
+    Expected[13][15] = 4680
+    Expected[14][0] = 1680
+    Expected[14][1] = 1904
+    Expected[14][2] = 2128
+    Expected[14][3] = 2352
+    Expected[14][4] = 2576
+    Expected[14][5] = 2800
+    Expected[14][6] = 3024
+    Expected[14][7] = 3248
+    Expected[14][8] = 3472
+    Expected[14][9] = 3696
+    Expected[14][10] = 3920
+    Expected[14][11] = 4144
+    Expected[14][12] = 4368
+    Expected[14][13] = 4592
+    Expected[14][14] = 4816
+    Expected[14][15] = 5040
+    Expected[15][0] = 1800
+    Expected[15][1] = 2040
+    Expected[15][2] = 2280
+    Expected[15][3] = 2520
+    Expected[15][4] = 2760
+    Expected[15][5] = 3000
+    Expected[15][6] = 3240
+    Expected[15][7] = 3480
+    Expected[15][8] = 3720
+    Expected[15][9] = 3960
+    Expected[15][10] = 4200
+    Expected[15][11] = 4440
+    Expected[15][12] = 4680
+    Expected[15][13] = 4920
+    Expected[15][14] = 5160
+    Expected[15][15] = 5400
+    j := 0
+    i = 0
+    WHILE i < 16 DO
+        WHILE j < 16 DO
+            A[i][j] = i
+            B[i][j] = i + j
+            j += 1
+        END
+        i += 1
+    END
+    sum : UWORD
+    i = 0
+    k := 0
+    WHILE i < 16 DO
+        j = 0
+        WHILE j < 16 DO
+            sum = 0
+            k = 0
+            WHILE k < 16 DO
+                sum += SoftMul(A[i][k], B[k][j])
+                k += 1
+            END
+            C[i][j] = sum
+            j += 1
+        END
+        i += 1
+    END
+
+    crap : UWORD
+    thing : ^UWORD 
+    thing = CAST Expected to ^UWORD
+    crap = ArrEquals(C, Expected)
+    return crap
+END

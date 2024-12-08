@@ -1,0 +1,20 @@
+#INCLUDE "<inc>/util.hjk"
+
+FN Main () : UWORD
+    a := 32
+    b := 69
+    result := SoftMul(a, b)
+    IF result == 2208 THEN
+        SimPutc('O')
+        SimPutc('k')
+        RETURN 0
+    ELSE 
+        s := "Jello, world!\n"
+        p := s
+        WHILE p < s + 14 DO
+            SimPutc(p^)
+        END
+        SimPutc(0x30 + (CAST result TO UBYTE))
+        RETURN 1
+    END
+END

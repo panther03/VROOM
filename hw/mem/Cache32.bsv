@@ -20,7 +20,6 @@ module mkL1CAU(L1CAU);
     Vector#(TExp#(7), Reg#(L1LineTag)) tagStore <- replicateM(mkReg(0));
     Vector#(TExp#(7), Reg#(Bool)) validStore <- replicateM(mkReg(False));
     BRAM_Configure cfg = defaultValue();
-    cfg.loadFormat = tagged Binary "zero.mem";
     BRAM1PortBE#(Bit#(7), LineData, 64) dataStore <- mkBRAM1ServerBE(cfg);
     BRAM1Port#(Bit#(7), Bool) dirtyStore <- mkBRAM1Server(cfg);
     FIFO#(L1LineTag) tagFifo <- mkFIFO;
@@ -151,18 +150,17 @@ module mkCache32(Cache32);
         let currReq = currReqQ.first();
         let pa = parseL1Address(currReq.req.addr);
         if (currReq.hit) begin 
-            Word word = unpack(0);
             if (currReq.req.word_byte == 0) begin
                 let x <- cau.resp();
                 Vector#(16, Word) line = unpack(x.data);
-                word = line[pa.offset];
+                Word word = line[pa.offset];
                 if (debug) begin 
                     $display("(cyc=%d) [Load Hit 2] Tag=%d Index=%d Offset=%d Data=%d", cyc, pa.tag, pa.index, pa.offset, word);
                 end
+                hitQ.enq(word);
             end 
             // If it's not a load, word value is a dont care, we just do this so CPU gets result
             currReqQ.deq();
-            hitQ.enq(word);
         end else begin
             let x <- cau.resp();
             if (x.isDirty) begin
@@ -181,7 +179,7 @@ module mkCache32(Cache32);
                 lineReqQ.enq(BusReq {
                     byte_strobe: 4'h0,
                     line_en: 1,
-                    addr: currReq.req.addr[31:2],
+                    addr: currReq.req.addr,
                     data: ?
                 });
                 if (debug) begin 
@@ -203,7 +201,8 @@ module mkCache32(Cache32);
         end
         lineReqQ.enq(BusReq {
             byte_strobe: 4'h0,
-            addr: currReq.req.addr[31:2],
+            addr: currReq.req.addr,
+            line_en: 1,
             data: ?
         });
         state <= WaitDramResp;
@@ -225,7 +224,6 @@ module mkCache32(Cache32);
         let dirty = False;
         // Always enqueue the word. If it's a store, we don't
         // actually care about the result, just that we got one.
-        hitQ.enq(word);
         if (currReq.req.word_byte != 0) begin
             // If it's a store we have to update the line with the 
             // appropriate mask before we write it back.
@@ -240,6 +238,8 @@ module mkCache32(Cache32);
             let mask = {pack(wb3), pack(wb2), pack(wb1), pack(wb0)};
             line_vec[pa.offset] = (word & ~mask) | (currReq.req.data & mask);
             dirty = True;
+        end else begin
+            hitQ.enq(word);
         end
         // Update line in CAU
         cau.update(pa.index, pack(line_vec), pa.tag, dirty);

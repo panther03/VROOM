@@ -1,0 +1,11 @@
+#INCLUDE "<inc>/util.hjk"
+
+FN Main () : UWORD
+    s := "Hello, world!\n"
+    p := s
+    WHILE p < s + 14 DO
+        SimPutc(p^)
+        p += 1
+    END
+    RETURN 0
+END

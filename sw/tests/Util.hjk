@@ -1,0 +1,14 @@
+EXTERN FN Setup () : UWORD
+
+EXTERN FN SimPutc (
+    IN char : UBYTE
+)
+
+EXTERN FN SimExit ( 
+    IN code: UWORD
+)
+
+EXTERN FN SoftMul(
+    IN x : UWORD,
+    IN y : UWORD
+) : UWORD

@@ -2,18 +2,16 @@ import XRUtil::*;
 import FIFO::*;
 import Vector::*;
 import ControlRegs::*;
-
-typedef Bit#(32) AluResult;
+import VROOMTypes::*;
 
 typedef struct {
     Bit#(32) rv1;
     Bit#(32) rv2;
     Bit#(32) inst;
-    Maybe#(Bit#(4)) ecause;
 } AluRequest deriving (Bits);
 
 interface Alu;
-    method ActionValue#(AluResult) deq();
+    method ActionValue#(ExcResult) deq();
     method Action enq(AluRequest a);
 endinterface
 
@@ -34,7 +32,7 @@ endfunction
 module mkAlu #(
     ControlRegs crs   
 )(Alu);
-    FIFO#(AluResult) results <- mkFIFO;
+    FIFO#(ExcResult) results <- mkFIFO;
     method Action enq(AluRequest a);
         let fields = getInstFields(a.inst);
         if (fields.op3l != op3l_IMM_GRP100 && fields.op3l != op3l_REG) begin
@@ -49,7 +47,7 @@ module mkAlu #(
         let op2 = regForm ? op2_reg : imm;
         Bit#(3) aluOp = regForm ? fields.funct4[2:0] : fields.op3u;
         let data = alu32(op1, op2, aluOp, regForm);
-        let ecause = tagged Invalid;
+        Maybe#(Bit#(4)) ecause = tagged Invalid;
         if (fields.op3u == op3u_REG_101) begin
             // user mode is active? generate exception
             if (crs.getCurrMode().u) begin
@@ -63,10 +61,13 @@ module mkAlu #(
                 end
             end
         end
-        results.enq(data);
+        results.enq(ExcResult {
+            data: data,
+            ecause: ecause
+        });
     endmethod
 
-    method ActionValue#(AluResult) deq();
+    method ActionValue#(ExcResult) deq();
         let res = results.first; results.deq();
         return res;
     endmethod

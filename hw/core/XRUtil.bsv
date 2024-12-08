@@ -98,6 +98,18 @@ Bit#(4) fn4_RFE         = 4'b1011;
 
 Bit#(5) reg_LR = 5'd31;
 
+Bit#(4) ecause_INT = 4'd1;
+Bit#(4) ecause_SYS = 4'd2;
+Bit#(4) ecause_BUS = 4'd4;
+Bit#(4) ecause_NMI = 4'd5;
+Bit#(4) ecause_BRK = 4'd6;
+Bit#(4) ecause_INV = 4'd7;
+Bit#(4) ecause_PRV = 4'd8;
+Bit#(4) ecause_UNA = 4'd9;
+Bit#(4) ecause_PGF = 4'd12;
+Bit#(4) ecause_PFW = 4'd13;
+Bit#(4) ecause_ITB = 4'd14;
+Bit#(4) ecause_DTB = 4'd15;
 
 typedef enum {
     LoadStore,

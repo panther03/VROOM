@@ -22,14 +22,9 @@ app: compiler
 	@mkdir -p $(BUILD_DIR)/sw
 	make -C sw/apps/$(APP)/ BUILD_DIR=$(BUILD_DIR)/sw/
 
-tests: compiler
+tests:
 	@mkdir -p $(BUILD_DIR)/sw/tests
 	make -C sw/tests/ BUILD_DIR=$(BUILD_DIR)/sw/tests
-
-compiler: compiler/target/release/vliw_opt
-COMPILER_SRCS = $(wildcard $(compiler/src)/*.rs)
-compiler/target/release/vliw_opt: $(COMPILER_SRCS)
-	cd compiler && cargo build --release
 
 clean:
 	rm -rf build/

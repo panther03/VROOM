@@ -1,5 +1,33 @@
 import Vector::*;
 import XRUtil::*;
+import RegFile::*;
+
+typedef enum {
+    Starting,
+    Steady,
+    SerialMtcr,
+    Exception
+} VROOMState deriving (Eq, FShow, Bits);
+
+typedef enum {
+    None,
+    MisalignFetch,
+    DecodeInvalid,
+    Poisoned
+} SquashReason deriving (Eq, FShow, Bits);
+
+function Bool stillValid(SquashReason sr); 
+    return sr == None;
+endfunction
+
+typedef Bit#(2) Epoch;
+
+typedef RegFile#(Bit#(5), Bit#(32)) VROOMRf;
+
+typedef struct {
+    Bit#(32) data;
+    Maybe#(Bit#(4)) ecause;
+} ExcResult deriving (Eq, FShow, Bits);
 
 typedef struct {
     // Current PC (address of executing instruction)
@@ -7,13 +35,15 @@ typedef struct {
     // Next PC -- do we even need this?
     // Bit#(32) npc;
     // Epoch (for squashing branches)
-    Bit#(1) epoch;
+    Epoch epoch;
 } FetchInfo deriving (Eq, FShow, Bits);
 
+typedef FetchInfo ControlRedirection;
+
 typedef struct {
-    Maybe#(Bit#(32)) rv1;
-    Maybe#(Bit#(32)) rv2;
-    Maybe#(Bit#(32)) rv3;
+    Bit#(32) rv1;
+    Bit#(32) rv2;
+    Bit#(32) rv3;
 } Operands deriving (Eq, FShow, Bits);
 
 /////////////////////////
@@ -22,6 +52,7 @@ typedef struct {
 
 typedef struct {
     FetchInfo fi;
+    SquashReason sr;
 `ifdef KONATA_ENABLE
     KonataId k_id;
 `endif
@@ -31,6 +62,7 @@ typedef struct {
     FetchInfo fi;
     DecodedInst di;
     Operands ops;
+    SquashReason sr;
 `ifdef KONATA_ENABLE
     KonataId k_id;
 `endif
@@ -38,7 +70,7 @@ typedef struct {
 
 typedef struct {
     DecodedInst di;
-    Bool poisoned;
+    SquashReason sr;
 `ifdef KONATA_ENABLE
     KonataId k_id;
 `endif

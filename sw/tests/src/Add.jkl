@@ -1,0 +1,5 @@
+FN Main () : UWORD
+    a := 5
+    b := 6
+    RETURN a + b
+END

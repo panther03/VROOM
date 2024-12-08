@@ -1,0 +1,46 @@
+#include "<ll>/Rtl.hjk"
+
+PrintAddr : ^UBYTE = CAST 0xE000FFF0 TO ^UBYTE
+ExitAddr : ^UWORD = CAST 0xE000FFF8 TO ^UWORD
+
+EXTERN FN Main ()
+EXTERN _data : UBYTE
+EXTERN _data_size : UBYTE
+EXTERN _text_szie : UBYTE
+
+FN Setup() : UWORD
+    RtlCopyBytes(
+        &_data,
+        &_text_size + XR_ROM_START,
+        CAST &_data_size TO UWORD
+    )
+
+    return Main()
+END
+
+FN SimPutc (
+    IN char : UBYTE
+)
+    PrintAddr^ = char
+END
+
+FN SimExit ( 
+    IN code : UWORD
+)
+    ExitAddr^ = code
+END
+
+FN SoftMul(
+    IN x : UWORD,
+    IN y : UWORD
+) : UWORD
+    ret := 0
+    i := 0
+    WHILE i < 32 DO
+        IF ((y >> i) & 1) == 1 THEN
+            ret += (x << i)
+        END
+        i += 1
+    END
+    RETURN ret
+END
