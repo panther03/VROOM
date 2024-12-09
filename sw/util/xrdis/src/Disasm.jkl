@@ -1,0 +1,529 @@
+#INCLUDE "<inc>/XrDefs.hjk"
+#INCLUDE "<ll>/Runtime.hjk"
+
+MemOpsSizeTable : ^UBYTE[4] = {
+    [1] = "LONG",
+    [2] = "INT",
+    [3] = "BYTE"
+}
+
+ShiftCodes : ^UBYTE[4] = {
+    [0] = "LSH",
+    [1] = "RSH",
+    [2] = "ASH",
+    [3] = "ROR"
+}
+
+ControlRegs : ^UBYTE[32] = {
+    [XR_CR_RS] = "RS",
+    [XR_CR_WHAMI] = "WHAMI",
+    [XR_CR_EB] = "EB",
+    [XR_CR_EPC] = "EPC",
+    [XR_CR_EBADADDR] = "EBADDR",
+    [XR_CR_TBMISSADDR] = "TBMISSADDR",
+    [XR_CR_TBPC] = "TBPC",
+    [XR_CR_SCRATCH0] = "SCRATCH0",
+    [XR_CR_SCRATCH1] = "SCRATCH1",
+    [XR_CR_SCRATCH2] = "SCRATCH2",
+    [XR_CR_SCRATCH3] = "SCRATCH3",
+    [XR_CR_SCRATCH4] = "SCRATCH4",
+    [XR_CR_ITBPTE] = "ITBPTE",
+    [XR_CR_ITBTAG] = "ITBTAG",
+    [XR_CR_ITBINDEX] = "ITBINDEX",
+    [XR_CR_ITBCTRL] = "ITBCTRL",
+    [XR_CR_ICACHECTRL] = "ICACHECTRL",
+    [XR_CR_ITBADDR] = "ITBADDR",
+    [XR_CR_DTBPTE] = "DTBPTE",
+    [XR_CR_DTBTAG] = "DTBTAG",
+    [XR_CR_DTBINDEX] = "DTBINDEX",
+    [XR_CR_DTBCTRL] = "DTBCTRL",
+    [XR_CR_DCACHECTRL] = "DCACHECTRL",
+    [XR_CR_DTBADDR] = "DTBADDR"
+}
+
+FN (FormatHandleF) HandleBranchFormat (
+    IN inst : ULONG
+)
+    TlPrint(" r%d, %08x\n", XR_EXTR_RA(inst), XR_EXTR_BROFS21(inst))
+END
+
+FN (FormatHandleF) HandleJumpFormat (
+    IN inst : ULONG
+)
+    TlPrint(" %08x\n", XR_EXTR_JT29(inst))
+END
+
+FN (FormatHandleF) HandleArithImmFormat (
+    IN inst : ULONG
+)
+    TlPrint(" r%d, r%d, %x\n", XR_EXTR_RA(inst), XR_EXTR_RB(inst), XR_EXTR_IMM16(inst))
+END
+
+FN (FormatHandleF) HandleLoadStoreImmFormat (
+    IN inst : ULONG
+)
+    opsize := MemOpsSizeTable[(inst >> 3) & 0x3]
+    IF opsize == NULLPTR THEN
+        TlPrint("INVALID")
+        LEAVE
+    ELSE 
+        TlPrint("MOV ")
+    END
+
+    ra := XR_EXTR_RA(inst)
+    rb := XR_EXTR_RB(inst)
+    imm16 := XR_EXTR_IMM16(inst)
+
+    IF inst & 1 THEN 
+        // Instruction is a load.
+        TlPrint(" r%d, %s [r%d + %x]\n", ra, opsize, rb, imm16)
+    ELSE 
+        // Instruction is a store.
+        TlPrint(" %s [r%d + %x], ", opsize, ra, imm16)
+        IF inst & 0x20 THEN
+            // Store rB.
+            TlPrint("r%d\n", rb)
+        ELSE
+            // Store small immediate.
+            TlPrint("%d\n", rb)
+        END
+    END
+END
+
+FN (FormatHandleF) HandleLoadStoreRegFormat (
+    IN inst : ULONG
+)
+    opsize := MemOpsSizeTable[(inst >> 3) & 0x3]
+    IF opsize == NULLPTR THEN
+        TlPrint(" INVALID")
+        LEAVE
+    END
+
+    ra := XR_EXTR_RA(inst)
+    rb := XR_EXTR_RB(inst)
+    rc := XR_EXTR_RB(inst)
+    shamt5 := XR_EXTR_SHAMT(inst)
+    sc := ShiftCodes[XR_EXTR_SC(inst)]
+
+    IF inst & 1 THEN 
+        // Instruction is a load.
+        TlPrint(" r%d, %s [r%d + r%d %s %d]\n", ra, opsize, rb, rc, sc, shamt5)
+    ELSE 
+        // Instruction is a store.
+        TlPrint(" %s [r%d + r%d %s %d], r%d\n", opsize, rb, rc, sc, shamt5, ra)
+    END
+END
+
+FN (FormatHandleF) HandleShiftFormat (
+    IN inst : ULONG
+)
+    sc := ShiftCodes[XR_EXTR_SC(inst)]
+    ra := XR_EXTR_RA(inst)
+    rb := XR_EXTR_RB(inst)
+    rc := XR_EXTR_RB(inst)
+    TlPrint("%-4s r%d, r%d, r%d\n", sc, ra, rc, rb)
+END
+
+FN (FormatHandleF) HandleArithRegFormat (
+    IN inst : ULONG
+)
+    sc := ShiftCodes[XR_EXTR_SC(inst)]
+    ra := XR_EXTR_RA(inst)
+    rb := XR_EXTR_RB(inst)
+    rc := XR_EXTR_RB(inst)
+    shamt5 := XR_EXTR_SHAMT(inst)
+
+    TlPrint(" r%d, r%d, r%d %s %d\n", ra, rb, rc, sc, shamt5)
+END
+
+FN (FormatHandleF) Handle2OpFormat (
+    IN inst : ULONG
+)
+    ra := XR_EXTR_RA(inst)
+    rb := XR_EXTR_RB(inst)
+    TlPrint(" r%d, r%d\n", ra, rb)
+END
+
+FN (FormatHandleF) Handle3OpFormat (
+    IN inst : ULONG
+)
+    ra := XR_EXTR_RA(inst)
+    rb := XR_EXTR_RB(inst)
+    rc := XR_EXTR_RB(inst)
+    TlPrint(" r%d, r%d, r%d\n", ra, rb, rc)
+END
+
+FN (FormatHandleF) HandleMcrFormat (
+    IN inst : ULONG
+)
+    ra := XR_EXTR_RA(inst)
+    rb := XR_EXTR_RB(inst)
+    cr := ControlRegs[XR_EXTR_RC(inst)]
+    IF cr == NULLPTR THEN
+        cr = "?"
+    END
+    IF inst & 1 THEN
+        // Move TO control register.
+        TlPrint(" %s, r%d\n", cr, rb)
+    ELSE 
+        // Move FROM control register.
+        TlPrint(" r%d, %s\n", ra, cr)
+    END
+END
+
+FormatFnTable : FormatHandleF[XR_FORMAT_MAX] = {
+    [XR_FORMAT_INVALID] = NULLPTR,
+    [XR_FORMAT_BRANCH] = &HandleBranchFormat,
+    [XR_FORMAT_JUMP] = &HandleJumpFormat,
+    [XR_FORMAT_ARITHIMM] = &HandleArithImmFormat,
+    [XR_FORMAT_LOADSTOREIMM] = &HandleLoadStoreImmFormat,
+    [XR_FORMAT_SHIFT] = &HandleShiftFormat,
+    [XR_FORMAT_LOADSTOREREG] = &HandleLoadStoreRegFormat,
+    [XR_FORMAT_ARITHREG] = &HandleArithRegFormat,
+    [XR_FORMAT_2OP] = &Handle2OpFormat,
+    [XR_FORMAT_3OP] = &Handle3OpFormat,
+    [XR_FORMAT_MCR] = &HandleMcrFormat,
+}
+
+// TODO: will fail spectacularly if Jackal compiler 
+// doesn't put zeroes where this is empty..
+Op3lTable : DisasmTableEntry[8] = {
+    [XR_OP3L_JAL] = {
+        [Opcode] = "JAL",
+        [Format] = XR_FORMAT_JUMP
+    },
+    [XR_OP3L_J] = {
+        [Opcode] = "J",
+        [Format] = XR_FORMAT_JUMP
+    },
+    [XR_OP3L_BRANCH] = {
+        [Format] = XR_FORMAT_BRANCH
+    },
+    [XR_OP3L_GRP100] = {
+        [Format] = XR_FORMAT_ARITHIMM
+    },
+    [XR_OP3L_GRP011] = {
+        [Opcode] = "",
+        [Format] = XR_FORMAT_LOADSTOREIMM
+    },
+    [XR_OP3L_GRP010] = {
+        [Opcode] = "",
+        [Format] = XR_FORMAT_LOADSTOREIMM
+    },
+    [XR_OP3L_GRP000] = {
+        [Format] = XR_FORMAT_INVALID
+    },
+    [XR_OP3L_REG] = {
+        [Format] = XR_FORMAT_INVALID
+    }
+} 
+
+Op3uBranch : DisasmTableEntry[8] = {
+    [XR_OP3U_BPO] = {
+        [Opcode] = "BPO"
+    },
+    [XR_OP3U_BPE] = {
+        [Opcode] = "BPE"
+    },
+    [XR_OP3U_BGE] = {
+        [Opcode] = "BGE"
+    },
+    [XR_OP3U_BLE] = {
+        [Opcode] = "BLE"
+    },
+    [XR_OP3U_BGT] = {
+        [Opcode] = "BGT"
+    },
+    [XR_OP3U_BLT] = {
+        [Opcode] = "BLT"
+    },
+    [XR_OP3U_BNE] = {
+        [Opcode] = "BNE"
+    },
+    [XR_OP3U_BEQ] = {
+        [Opcode] = "BEQ"
+    },
+}
+
+Op3uArithImm : DisasmTableEntry[8] = {
+    [XR_ADD] = {
+        [Opcode] = "ADDI"
+    },
+    [XR_SUB] = {
+        [Opcode] = "SUBI"
+    },
+    [XR_SLT] = {
+        [Opcode] = "SLTI"
+    },
+    [XR_SLTS] = {
+        [Opcode] = "SLTIS"
+    },
+    [XR_AND] = {
+        [Opcode] = "ANDI"
+    },
+    [XR_XOR] = {
+        [Opcode] = "XORI"
+    },
+    [XR_OR] = {
+        [Opcode] = "OR"
+    },
+    [XR_LUI_NOR] = {
+        [Opcode] = "LUI"
+    }
+}
+
+Op3uGrp000 :  DisasmTableEntry[8] = {
+    [XR_OP3U_JALR] = {
+        [Opcode] = "JALR",
+        [Format] = XR_FORMAT_ARITHIMM
+    }
+}
+
+Op3uReg : DisasmTableEntry[8] = {
+    [XR_OP3U_REG_111] = {
+        [Format] = XR_FORMAT_INVALID
+    },
+    [XR_OP3U_REG_110] = {
+        [Format] = XR_FORMAT_INVALID
+    },
+    [XR_OP3U_REG_101] = {
+        [Format] = XR_FORMAT_INVALID
+    }
+}
+
+Funct4Reg111 : DisasmTableEntry[16] = {
+    [FUNCT4_SHFT] = {
+        [Opcode] = "",
+        [Format] = XR_FORMAT_SHIFT
+    },
+    [FUNCT4_LOADB] = {
+        [Opcode] = "",
+        [Format] = XR_FORMAT_LOADSTOREREG
+    },
+    [FUNCT4_LOADI] = {
+        [Opcode] = "",
+        [Format] = XR_FORMAT_LOADSTOREREG
+    },
+    [FUNCT4_LOADL] = {
+        [Opcode] = "",
+        [Format] = XR_FORMAT_LOADSTOREREG
+    },
+    [FUNCT4_STORB] = {
+        [Opcode] = "",
+        [Format] = XR_FORMAT_LOADSTOREREG
+    },
+    [FUNCT4_STORI] = {
+        [Opcode] = "",
+        [Format] = XR_FORMAT_LOADSTOREREG
+    },
+    [FUNCT4_STORL] = {
+        [Opcode] = "",
+        [Format] = XR_FORMAT_LOADSTOREREG
+    },
+    [XR_ADD] = {
+        [Opcode] = "ADD",
+        [Format] = XR_FORMAT_ARITHREG
+    },
+    [XR_SUB] = {
+        [Opcode] = "SUB",
+        [Format] = XR_FORMAT_ARITHREG
+    },
+    [XR_SLT] = {
+        [Opcode] = "SLT",
+        [Format] = XR_FORMAT_ARITHREG
+    },
+    [XR_SLTS] = {
+        [Opcode] = "SLTI",
+        [Format] = XR_FORMAT_ARITHREG
+    },
+    [XR_AND] = {
+        [Opcode] = "AND",
+        [Format] = XR_FORMAT_ARITHREG
+    },
+    [XR_XOR] = {
+        [Opcode] = "XOR",
+        [Format] = XR_FORMAT_ARITHREG
+    },
+    [XR_OR] = {
+        [Opcode] = "OR",
+        [Format] = XR_FORMAT_ARITHREG
+    },
+    [XR_LUI_NOR] = {
+        [Opcode] = "NOR",
+        [Format] = XR_FORMAT_ARITHREG
+    }
+}
+
+Funct4Reg110: DisasmTableEntry[16] = {
+    [FUNCT4_MUL] = {
+        [Opcode] = "MUL",
+        [Format] = XR_FORMAT_3OP
+    },
+    [FUNCT4_DIV] = {
+        [Opcode] = "DIV",
+        [Format] = XR_FORMAT_3OP
+    },
+    [FUNCT4_DIVS] = {
+        [Opcode] = "DIV SIGNED",
+        [Format] = XR_FORMAT_3OP
+    },
+    [FUNCT4_MOD] = {
+        [Opcode] = "MOD",
+        [Format] = XR_FORMAT_3OP
+    },
+    [FUNCT4_LL] = {
+        [Opcode] = "LL",
+        [Format] = XR_FORMAT_2OP
+    },
+    [FUNCT4_SC] = {
+        [Opcode] = "SC",
+        [Format] = XR_FORMAT_3OP
+    },
+    [FUNCT4_MB] = {
+        [Opcode] = "MB",
+        [Format] = XR_FORMAT_EMPTY
+    },
+    [FUNCT4_WMB] = {
+        [Opcode] = "WMB",
+        [Format] = XR_FORMAT_EMPTY
+    },
+    [FUNCT4_BRK] = {
+        [Opcode] = "BRK",
+        [Format] = XR_FORMAT_EMPTY
+    },
+    [FUNCT4_SYS] = {
+        [Opcode] = "SYS",
+        [Format] = XR_FORMAT_EMPTY
+    }
+}
+
+Funct4Reg101: DisasmTableEntry[16] = {
+    [FUNCT4_MFCR] = {
+        [Opcode] = "MFCR",
+        [Format] = XR_FORMAT_MCR
+    },
+    [FUNCT4_MTCR] = {
+        [Opcode] = "MTCR",
+        [Format] = XR_FORMAT_MCR
+    },
+    [FUNCT4_HLT] = {
+        [Opcode] = "HLT",
+        [Format] = XR_FORMAT_EMPTY
+    },
+    [FUNCT4_RFE] = {
+        [Opcode] = "RFE",
+        [Format] = XR_FORMAT_EMPTY
+    }
+}
+
+FN InitTablePointers ()
+    Op3lTable[XR_OP3L_BRANCH].NextTable = &Op3uBranch[0]
+    Op3lTable[XR_OP3L_GRP100].NextTable = &Op3uArithImm[0]
+    Op3lTable[XR_OP3L_GRP000].NextTable = &Op3uGrp000[0]
+    Op3lTable[XR_OP3L_REG].NextTable = &Op3uReg[0]
+    Op3uReg[XR_OP3U_REG_111].NextTable = &Funct4Reg111[0]
+    Op3uReg[XR_OP3U_REG_110].NextTable = &Funct4Reg110[0]
+    Op3uReg[XR_OP3U_REG_101].NextTable = &Funct4Reg101[0]
+END
+
+FN PrintDisassembly (
+    IN buf : ^ULONG,
+    IN size: ULONG
+)
+    ind := 0
+    WHILE ind < size DO
+        inst := buf[ind]
+        TlPrint ( "%04x : %08x : ", ind * 4, inst)
+        instsr := (XR_EXTR_FUNCT4(inst) << 16) | (XR_EXTR_OP3U(inst) << 8) | XR_EXTR_OP3L(inst)
+        currentry := &Op3lTable[instsr & 0xFF]
+        format := currentry^.Format
+
+        ind += 1
+
+        WHILE currentry^.NextTable != NULLPTR DO
+            currtable := currentry^.NextTable
+            instsr = instsr >> 8
+            currentry = &currtable[instsr & 0xFF]
+            format = (format | currentry^.Format) & 0xFF
+        END
+
+        formatfn := FormatFnTable[format]
+        IF currentry^.Opcode == NULLPTR THEN
+            TlPrint ( "INVALID\n" )
+            CONTINUE
+        END
+
+        // Empty string is sometimes used to defer printing of opcode 
+        // to the format handler.
+        IF currentry^.Opcode[0] THEN
+            TlPrint ( "%-4s", currentry^.Opcode )
+        END
+        IF formatfn != NULLPTR THEN 
+            formatfn(inst)
+        END
+    END
+END
+
+FN TlMain (
+    IN argc : ULONG,
+    IN argv : ^^UBYTE,
+)
+    IF argc < 2 THEN
+        TlPrintByHandle(
+            TlStdErr,
+            "Usage: %s <binfile>\n",
+            TlProgramName
+        )
+        TlErrorExit()
+    END
+
+    handle : ^VOID
+    filename := argv[1]
+
+    status := TlOpenSource (
+        filename,
+        OUT handle
+    )
+
+    IF status THEN
+        TlError ( "%s: Failed to open binary file\n", filename )
+    END
+
+    // Now stat the file to acquire the size.
+
+    statrecord : TlStatRecord
+
+    IF TlStatFile (
+        filename, // path
+        &statrecord, // statrecord
+    ) THEN
+        TlInternalError ( "Failed to stat object file", 0, 0, 0 )
+    END
+
+    IF statrecord.SizeInBytes < 8 OR statrecord.SizeInBytes % 4 != 0 THEN
+        TlError ( "%s: malformed binary file; should be at least 8 bytes aligned to word boundary\n" )
+    END
+
+    // Allocate a buffer to contain the file contents.
+
+    ptr : ^UBYTE
+
+    status = TlAlloc (
+        statrecord.SizeInBytes, // bytes
+        OUT ptr, // ptr
+    )
+
+    // Read the file.
+
+    TlReadFile (
+        handle, // handle
+        statrecord.SizeInBytes, // bytes
+        ptr, // buffer
+    )
+
+    InitTablePointers()
+    PrintDisassembly(
+        CAST (ptr + 8) TO ^ULONG,
+        (statrecord.SizeInBytes >> 2) - 2
+    )
+END

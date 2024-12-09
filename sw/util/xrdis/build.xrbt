@@ -1,0 +1,35 @@
+#IF ( NOT ( DEFINED BUILD_BASE ) )
+	#DEFINE BUILD_BASE "./build/" 
+#END
+
+#IF ( NOT ( DEFINED ARCHITECTURE ) )
+    #DEFINE ARCHITECTURE "CHost"
+#END
+
+#IF ( NOT ( DEFINED PLATFORM ) )
+    #DEFINE PLATFORM "CHost"
+#END
+
+
+#IF ( NOT ( DEFINED BLD_BITS ) )
+    #DEFINE BLD_BITS 64
+#END
+
+#EXPOSE ARCHITECTURE
+#EXPOSE PLATFORM
+#EXPOSE BLD_BITS
+
+TARGET "XrDis"
+    FILE "<bld>/xrdis.exe"
+    
+    INCDIR "./include" 
+
+    LIBDIR "<sdk>/Library/include"
+    OBJECTS "<sdk>/Library/"
+    
+    #IF ( STRCMP ARCHITECTURE "CHost" )
+		OBJECTS "<sdk>/Library/CHost"
+	#END
+
+	SOURCES "./src"
+END
