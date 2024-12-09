@@ -55,6 +55,7 @@ typedef struct {
     FetchInfo fi;
     SquashReason sr;
     KonataId kid;
+    Bool needsNewFetch;
 } F2D deriving (Eq, FShow, Bits);
 
 typedef struct {

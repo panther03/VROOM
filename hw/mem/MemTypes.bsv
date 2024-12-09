@@ -9,7 +9,7 @@ typedef Bit#(512) BusResp;
 typedef struct { Bit#(4) word_byte; Bit#(30) addr; Bit#(32) data;} DMemReq deriving (Eq, FShow, Bits, Bounded);
 typedef Word DMemResp;
 
-typedef struct { Bit#(28) addr; } IMemReq deriving (Eq, FShow, Bits, Bounded);
+typedef struct { Bit#(30) addr; } IMemReq deriving (Eq, FShow, Bits, Bounded);
 // 128 bits for prefetching
 // 120 more optimal for future vliw (?)
 typedef Bit#(128) IMemResp;

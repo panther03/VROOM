@@ -39,37 +39,37 @@ def to_string(list_of_words):
     #  
     return "a"*(128-len(output)) + output + "\n"
 
-def fix_mem(inp_hex):
-    with open(inp_hex) as input, open("build/hw/memlines.mem", "w") as output:
-        
-        current_word = 0
-        current_line = []
+ROM_WIDTH = 1
 
-        for line in input:
-            if '@' in line:
-                if current_line:
-                    output.write(to_string(current_line))
-    
-                current_word = 0
+def convert_rom(inp_rom):
+    with open(inp_rom, 'rb') as input, open("build/hw/rom.mem", "w") as output:
+        output.write('@')
+        ind = 0
+        line = ""
 
-                num = line[1:-2]
+        # I think Will's ROM format has two words of metadata to start
+        # TODO
+        input.read(4)
+        input.read(4) 
 
-                output.write("@" + str(num) + "\n")
-                continue
-
-            word = line.rjust(9, "0").strip()
-            current_line.append(word)
-
-            current_word = (current_word + 1) % 16
-            
-            if current_word == 0:
-                output.write(to_string(current_line))
-
-        if current_word != 0:
-            output.write(to_string(current_line))
+        while (word := input.read(4)):
+            # should always be able to get a word at a time
+            assert len(word) == 4
+            # big because we don't want to touch the encoding
+            # it is actually little endian
+            word = int.from_bytes(word, "big") 
+            if ind == 0:
+                output.write(line + '\n')
+                line = ""
+            line = "{0:08x}".format(word) + line
+            ind = (ind+1) % ROM_WIDTH
+        if ind > 0:
+            output.write("a"*8*(ROM_WIDTH-ind) + line)
+        elif ind == 0:
+            output.write(line)
 
 def simulate(prog):
-    fix_mem(prog)
+    convert_rom(prog)
     r = subprocess.run(["sh", "Sim"], cwd="build/hw/")
     if r.returncode:
         exit(r.returncode)
@@ -77,7 +77,7 @@ def simulate(prog):
 if __name__ == "__main__":
 
     if len(sys.argv) < 2:
-        print("Please supply a .hex or directory containing them as an argument.")
+        print("Please supply a .rom or directory containing them as an argument.")
     argv = sys.argv[1:]
     progs = []
 
@@ -85,11 +85,11 @@ if __name__ == "__main__":
         arg_p = "build/sw/" + arg
         if os.path.isdir(arg_p):
             for f in os.listdir(arg_p):
-                if f.endswith(".hex"):
+                if f.endswith(".rom"):
                     progs.append(arg_p + "/" + f)
         else:
-            if not arg_p.endswith(".hex"):
-                print("Please supply a .hex or directory containing them as an argument: " + arg_p)
+            if not arg_p.endswith(".rom"):
+                print("Please supply a .rom or directory containing them as an argument: " + arg_p)
             progs.append(arg_p)
     
 

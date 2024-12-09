@@ -4,11 +4,11 @@ import BRAM::*;
 import FIFO::*;
 import DelayLine::*;
 
-//typedef enum {
-//    DRAM,
-//    ROM,
-//    MMIO
-//} BusRespSource deriving (Bits, Eq);
+typedef enum {
+    DRAM,
+    ROM,
+    MMIO
+} BusRespSource deriving (Bits, Eq);
 
 interface MainMem;
     method Action put(BusReq req);
@@ -50,6 +50,7 @@ endmodule
 module mkSim(Empty);
     VROOMIfc vroom <- mkVROOM();
     MainMem mem <- mkMainMem();
+    FIFO#(BusRespSource) respTracker <- mkFIFO;
     Reg#(Bit#(32)) cycle_count <- mkReg(0);
 
     BRAM_Configure cfg = defaultValue();
@@ -120,41 +121,45 @@ module mkSim(Empty);
         if (unpack(req.line_en)) begin
             if (req.addr[29:28] != 2'b00) begin
                 $fdisplay(stderr, "DRAM (line) request outside of cached region: %08x", {req.addr, 2'h0});
-                $error;
+                $finish;
             end 
             mem.put(req);
+            respTracker.enq(DRAM);
         end else begin
             // go to BOOTROM
             if (req.addr[29:14] == 16'hFFFE) begin
                 if (req.byte_strobe != 4'h0) begin
                     $fdisplay(stderr, "Attempt to write to ROM.. %08x", {req.addr, 2'h0});
-                    $error;
+                    $finish;
                 end
                 rom.portA.request.put(BRAMRequest {
                     write: False,
                     responseOnWrite: ?,
-                    address: req.addr[15:2],
+                    address: req.addr[13:0],
                     datain: ?
                 });
+                respTracker.enq(ROM);
             end else if (req.addr[29:26] == 4'hE) begin
                 handleMMIOReq(req);
             end else begin
                 $fdisplay(stderr, "Illegal word request to uncached region: %08x", {req.addr, 2'h0});
-                $error;
+                $finish;
             end
         end
     endrule
 
-    (* descending_urgency = "handleROMResp, handleDRAMResp" *)
-    rule handleROMResp;
-        let resp <- rom.portA.response.get();
-        vroom.putBusResp({480'h0, resp});
-        endrule
-        
-    rule handleDRAMResp;
-        let resp <- mem.get();
+    rule handleBusResp;
+        let respSource = respTracker.first; respTracker.deq();
+        let resp = 512'h0;
+        case (respSource)
+            DRAM: resp <- mem.get();
+            ROM: begin
+                Bit#(32) romWord <- rom.portA.response.get();
+                resp = {480'h0, romWord};
+            end
+            // MMIO doesnt generate responses for the time being
+        endcase
         vroom.putBusResp(resp);
     endrule
     
-    // MMIO doesnt generate responses for the time being
 endmodule

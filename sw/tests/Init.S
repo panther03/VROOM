@@ -73,7 +73,6 @@
 FwReset:
 .global FwReset
     // Set the initial stack pointer to 1024 bytes.
-
     li   sp, 0x400
 
     jal SetupAndMain

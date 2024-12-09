@@ -19,13 +19,16 @@ endinterface
 module mkDecode #(
     VROOMFsm fsm,
     KonataIntf konataHelper,
-    FIFO#(F2D) f2d,
+    FIFO#(F2D) f2ws,
     FIFO#(D2E) d2e,
     FIFO#(IMemResp) fromImem,
     function ModeByte getCurrMode()
 )(DecodeIntf);
+    FIFO#(F2D) ws2d <- mkFIFO;
+    FIFO#(Word) decodeWord <- mkFIFO;
     RWire#(Bit#(5)) freeReg <- mkRWire();
     RWire#(Bit#(5)) markReg <- mkRWire();
+    Reg#(IMemResp) fetchedLine <- mkReg(128'h0);
 
     Scoreboard sc <- mkScoreboardBoolFlags;
     VROOMRf rf <- mkRegFile(5'h0, 5'd31);
@@ -41,13 +44,25 @@ module mkDecode #(
         end
     endrule
 
+    rule wordSelect if (fsm.getState() == Steady);
+        let f2wsResult = f2ws.first(); f2ws.deq();
+        IMemResp line = fetchedLine;
+        if (f2wsResult.needsNewFetch) begin
+            line = fromImem.first(); fromImem.deq();
+        end
+        Vector#(4, Word) lineVec = unpack(line);
+        let sel = (f2wsResult.fi.pc[31:30] == 2'b11) ? 0 : f2wsResult.fi.pc[3:2];
+        ws2d.enq(f2wsResult);
+
+        konataHelper.stageInst(f2wsResult.kid, "WS");
+        konataHelper.labelInstLeft(f2wsResult.kid, $format(" | %08x", lineVec[sel]));
+        decodeWord.enq(lineVec[sel]);
+    endrule
+
     rule decode if (fsm.getState() == Steady);
         // TODO if there is an exception from fetch, catch it here and don't do an actual decode
-        let f2dResult = f2d.first();
-        let imemResp = fromImem.first();        
-        Vector#(4, Word) imemRespVec = unpack(imemResp);
-        let sel = f2dResult.fi.pc[3:2];
-        let inst = imemRespVec[sel];
+        let ws2dResult = ws2d.first();
+        let inst = decodeWord.first();        
         let dinst = decodeInst(inst);
 
         Bool t = getCurrMode().t;
@@ -63,24 +78,24 @@ module mkDecode #(
 
 
         if (!dinst.legal || (rs1_rdy && rs2_rdy && rs3_rdy)) begin
-            f2d.deq();
-            fromImem.deq();
+            ws2d.deq();
+            decodeWord.deq();
 
-            let rv1 = (t || rs1 != 5'h0) ? rf.sub(rs1) : 32'h0;
-            let rv2 = (t || rs2 != 5'h0) ? rf.sub(rs2) : 32'h0;
-            let rv3 = (t || rs3 != 5'h0) ? rf.sub(rs3) : 32'h0;
+            let rv1 = (dinst.legal && (t || rs1 != 5'h0)) ? rf.sub(rs1) : 32'h0;
+            let rv2 = (dinst.legal && (t || rs2 != 5'h0)) ? rf.sub(rs2) : 32'h0;
+            let rv3 = (dinst.legal && (t || rs3 != 5'h0)) ? rf.sub(rs3) : 32'h0;
 
             let rd = fromMaybe(5'h0, dinst.rd);
-            if (isValid(dinst.rd) && rd != 5'h0) begin
+            if (dinst.legal && isValid(dinst.rd) && rd != 5'h0) begin
                 markReg.wset(rd);
             end
 
-            konataHelper.stageInst(f2dResult.kid, "D");
+            konataHelper.stageInst(ws2dResult.kid, "D");
             // TODO more informative debugging info here
-            konataHelper.labelInstLeft(f2dResult.kid, $format(" | WR = %d; RS=[%08x,%08x,%08x]", rd, rv1, rv2, rv3));
+            konataHelper.labelInstLeft(ws2dResult.kid, $format(" | WR = %d; RS=[%08x,%08x,%08x]", rd, rv1, rv2, rv3));
 
             d2e.enq(D2E {
-                fi: f2dResult.fi,
+                fi: ws2dResult.fi,
                 di: dinst,
                 ops: Operands {
                     rv1: rv1,
@@ -88,10 +103,10 @@ module mkDecode #(
                     rv3: rv3
                 },
                 sr: dinst.legal ? None : DecodeInvalid,
-                kid: f2dResult.kid
+                kid: ws2dResult.kid
             });
         end else begin
-            konataHelper.stageInst(f2dResult.kid, "Ds");
+            konataHelper.stageInst(ws2dResult.kid, "Ds");
         end
     endrule
 

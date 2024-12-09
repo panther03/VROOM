@@ -1,4 +1,4 @@
-BSC_FLAGS=--aggressive-conditions --show-schedule -p +:hw/:hw/core:hw/mem:hw/top:hw/tb:hw/util -vdir $(BUILD_DIR) -bdir $(BUILD_DIR) -simdir $(BUILD_DIR) -info-dir $(BUILD_DIR) -o 
+BSC_FLAGS=--aggressive-conditions -show-range-conflict --show-schedule -p +:hw/:hw/core:hw/mem:hw/top:hw/tb:hw/util -vdir $(BUILD_DIR) -bdir $(BUILD_DIR) -simdir $(BUILD_DIR) -info-dir $(BUILD_DIR) -o 
 BSV_FILES=$(shell find hw -name "*.bsv" -type f)
 
 $(BUILD_DIR)/$(BINARY_NAME): $(BUILD_DIR) $(BSV_FILES)

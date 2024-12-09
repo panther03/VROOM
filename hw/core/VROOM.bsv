@@ -119,16 +119,16 @@ module mkVROOM (VROOMIfc);
     function Action putIMemReq(IMemReq r);
     action
         // Not using paging and in upper 3GB
-        if (!crs.getCurrMode().m && r.addr[27:26] == 2'b11) begin
+        if (!crs.getCurrMode().m && r.addr[29:28] == 2'b11) begin
             toBus.enq(BusReq {
                 byte_strobe: 4'h0,
-                line_en: 1,
-                addr: {r.addr, 2'h0},
+                line_en: 0,
+                addr: r.addr,
                 data: ?
             });
             busTracker.enq(BusBusiness {
                 origin: IUNC,
-                addr_low: {r.addr[1:0], 2'b00}
+                addr_low: {r.addr[3:2], 2'b00}
             });
         end else begin
             iCache.putFromProc(r);

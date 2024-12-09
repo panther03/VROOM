@@ -25,7 +25,7 @@ module mkL1ICAU(L1ICAU);
     FIFO#(L1LineTag) tagFifo <- mkFIFO;
     
     method ActionValue#(HitMissType) req(IMemReq c);
-        let pa = parseL1IAddress(c.addr);
+        let pa = parseL1IAddress(c.addr[29:2]);
         let tag = tagStore[pa.index];
         let valid = validStore[pa.index];
         if (debug) $display("ind: %d, valid: ", pa.index, fshow(valid));
@@ -129,7 +129,7 @@ module mkICache(ICache);
 
     rule handleCAUResponse if (state == WaitCAUResp);
         let currReq = currReqQ.first();
-        let pa = parseL1IAddress(currReq.req.addr);
+        let pa = parseL1IAddress(currReq.req.addr[29:2]);
         if (currReq.hit) begin 
             IMemResp word = unpack(0);
             let x <- cau.resp();
@@ -158,7 +158,7 @@ module mkICache(ICache);
             end else begin
                 lineReqQ.enq(BusReq {
                     byte_strobe: 4'h0,
-                    addr: {currReq.req.addr, 2'h0},
+                    addr: currReq.req.addr,
                     data: ?,
                     line_en: 1'b1
                 });
@@ -172,7 +172,7 @@ module mkICache(ICache);
 
     rule handleWriteback if (state == SendReq);
         let currReq = currReqQ.first();
-        let pa = parseL1IAddress(currReq.req.addr);
+        let pa = parseL1IAddress(currReq.req.addr[29:2]);
         if (debug) begin
             $display("(cyc=%d) [WB->DRAM]", cyc);
         end
@@ -181,7 +181,7 @@ module mkICache(ICache);
         end
         lineReqQ.enq(BusReq {
             byte_strobe: 4'h0,
-            addr: {currReq.req.addr, 2'h0},
+            addr: currReq.req.addr,
             data: ?,
             line_en: 1'b1
         });
@@ -192,7 +192,7 @@ module mkICache(ICache);
         // Grab response from memory and the request we have been handling.
         let line = lineRespQ.first(); lineRespQ.deq();
         let currReq = currReqQ.first(); currReqQ.deq();
-        let pa = parseL1IAddress(currReq.req.addr);
+        let pa = parseL1IAddress(currReq.req.addr[29:2]);
 
         if (debug) begin
             $display("(cyc=%d) [DRAM->CACHE]", cyc);
@@ -211,7 +211,7 @@ module mkICache(ICache);
 
     method Action putFromProc(IMemReq e);
         let hitMissResult <- cau.req(e);
-        let pa = parseL1IAddress(e.addr);
+        let pa = parseL1IAddress(e.addr[29:2]);
         case (hitMissResult)
             LdHit: begin
                 if (debug) $display("(cyc=%d) [Load Hit  ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);

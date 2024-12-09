@@ -18,17 +18,27 @@ module mkFetch #(
 )(FetchIntf);
     Ehr#(2, Bit#(32)) pc <- mkEhr(32'hFFFE1000);
     Ehr#(2, Epoch) epoch <- mkEhr(2'h0);
+    Reg#(Bit#(28)) lastImemAddr <- mkReg(28'h0);
         
     rule fetch if (fsm.getState() == Steady);
         Bit#(32) pc_next = pc[0] + 4;
 
         pc[0] <= pc_next;
 
-        let req = IMemReq { addr: pc[0][31:4] };
-        putIMemReq(req);
+        let imem_addr = pc[0][31:4];
+
+        // Access to word in the same fetched line. Doesn't need to be fetched from cache again
+        // If in uncached region, always need new fetch.
+        let needsNewFetch = pc[0][31:30] == 2'b11 || imem_addr != lastImemAddr;
+        if (needsNewFetch) begin
+            let req = IMemReq { addr: pc[0][31:2] };
+            putIMemReq(req);
+        end
+
+        lastImemAddr <= imem_addr;
 
         let kid <- konataHelper.declareInst(tagged Invalid);
-        konataHelper.stageInst(kid, "F");
+        konataHelper.stageInst(kid, needsNewFetch ? "Fn" : "Fo");
         konataHelper.labelInstLeft(kid, $format("PC=%08x", pc[0]));
 
         f2d.enq(F2D {
@@ -38,7 +48,8 @@ module mkFetch #(
                 epoch: epoch[0]
             },
             sr: None, // TODO misalignment exception
-            kid: kid
+            kid: kid,
+            needsNewFetch: needsNewFetch
         });
     endrule
 

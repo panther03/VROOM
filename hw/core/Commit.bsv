@@ -28,11 +28,19 @@ module mkCommit #(
     rule commit if (fsm.getState() == Steady);
         let e2wResult = e2w.first; e2w.deq();
         Bool earlyPoison = !stillValid(e2wResult.sr);
+        // RS3 is used exclusively for stores so this is a shortcut
+        // TODO: Stop being a fuckhead and add another field
+        Bool isStore = isValid(e2wResult.di.rs3);
 
-        ExcResult ru = ?;
+        ExcResult ru = ExcResult {
+            data: ?,
+            ecause: tagged Invalid
+        };
         if (!earlyPoison) begin
             case (e2wResult.di.fu) 
-                LoadStore: ru <- mu.deq();
+                // stores don't produce a response, for now
+                // when we add TLB lookup they will
+                LoadStore: if (!isStore) ru <- mu.deq();
                 Control: ru <- bu.deq();
                 ALU: ru <- alu.deq();
             endcase
@@ -59,14 +67,13 @@ module mkCommit #(
                 writeRf(rd, ru.data);
             end
             freeRegister(rd);
-        end else if (isValid(e2wResult.di.rs3)) begin // store instruction
-            // RS3 is used exclusively for stores so this is a shortcut
-            // TODO: Stop being a fuckhead and add another field
+        end else if (isStore) begin
             if (commitOk) mu.commitStore();
         end
         
         if (isValid(finalEcause)) begin
             // exception handling, TODO
+            konataHelper.stageInst(e2wResult.kid, "We");
             konataHelper.squashInst(e2wResult.kid);
         end
 
@@ -76,6 +83,7 @@ module mkCommit #(
             if (isValid(e2wResult.di.rd)) begin
                 konataHelper.labelInstLeft(e2wResult.kid, $format(" | RF [%d]=%08x", rd, ru.data));
             end
+        end else begin
         end
     endrule
 endmodule

@@ -21,27 +21,44 @@ interface KonataIntf;
 endinterface
 
 `ifdef KONATA_ENABLE
+Bit#(32) deadlockLimit = 32'd200;
 // Konata-enabled implementation
 module mkKonata (KonataIntf);
     Reg#(KonataId) allCtr <- mkReg(0);
-    Reg#(KonataId) commitCtr <- mkReg(0);
+    Reg#(KonataId) commitCtr <- mkReg(1);
+    Reg#(Bit#(32)) deadlockCtr <- mkReg(0);
     Reg#(Bool) inited <- mkReg(False);
     let lfh <- mkReg(InvalidFile);
 
     FIFO#(KonataId) committed <- mkFIFO;
     FIFO#(KonataId) squashed <- mkFIFO;
+
+    PulseWire comitting <- mkPulseWire;
+    PulseWire squashing <- mkPulseWire;
     
     rule tick if (inited);
         $fdisplay(lfh, "C\t1");
+
+        if (comitting || squashing) 
+            deadlockCtr <= 0;
+        else 
+            deadlockCtr <= deadlockCtr + 1;
+        
+        if (deadlockCtr >= deadlockLimit) begin
+            $fdisplay(stderr, "Stopping due to deadlock after %d cycles of no commit/squash", deadlockCtr);
+            $finish;
+        end
     endrule
 
     rule doSquash if (inited);
         let kid = squashed.first(); squashed.deq();
+        squashing.send();
         $fdisplay(lfh, "R\t%d\t%d\t%d", kid, 0, 1);
-    endrule
-
+        endrule
+        
     rule doCommit if (inited);
         let kid = committed.first(); committed.deq();
+        comitting.send();
         commitCtr <= commitCtr + 1;
         $fdisplay(lfh, "R\t%d\t%d\t%d", kid, commitCtr, 0);
     endrule
