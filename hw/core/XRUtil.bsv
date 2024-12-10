@@ -253,3 +253,7 @@ function DecodedInst decodeInst(Bit#(32) inst);
         inst: inst
     };
 endfunction
+
+function Bit#(32) swap32(Bit#(32) x);
+    return {x[7:0], x[15:8], x[23:16], x[31:24]};
+endfunction

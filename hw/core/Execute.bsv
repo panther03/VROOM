@@ -39,7 +39,6 @@ module mkExecute #(
         // Invalid instructions are also squashed this way.
         if (currentEpoch() != d2eResult.fi.epoch) begin
             konataHelper.stageInst(d2eResult.kid, "Xp");
-            konataHelper.squashInst(d2eResult.kid);
             sr = Poisoned;
         end
 

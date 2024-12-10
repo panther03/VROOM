@@ -28,21 +28,19 @@ interface MemUnit;
     method Action commitStore();
 endinterface
 
-function Bit#(32) swap32(Bit#(32) x);
-    return {x[7:0], x[15:8], x[23:16], x[31:24]};
-endfunction
-
 module mkMemUnit#(
     KonataIntf konataHelper,
     function Action putDMemReq(DMemReq r),
     function ActionValue#(DMemResp) getDMemResp
 )(MemUnit);
     FIFO#(Stage1Result) stage1 <- mkFIFO;
+    FIFO#(MemRequest) reqs <- mkBypassFIFO;
     FIFO#(ExcResult) results <- mkBypassFIFO;
     FIFOF#(ReadBusiness) currBusiness <- mkFIFOF;
     // pipeline FIFO: want to be able to enqueue and dequeue in same cycle,
     // but also have only one state that we need to check
     FIFOF#(DMemReq) storeQueue <- mkPipelineFIFOF;
+    FIFO#(DMemReq) loadQueue <- mkFIFO;
 
     rule getMemoryResponse;
         let stage1_res = stage1.first(); stage1.deq();
@@ -67,7 +65,14 @@ module mkMemUnit#(
         end
     endrule
 
-    method Action enq(MemRequest m);
+    rule executeLoad;
+        let lastLoad = loadQueue.first();
+        loadQueue.deq();
+        putDMemReq(lastLoad);
+    endrule
+
+    rule handleRequest;
+        let m = reqs.first(); reqs.deq();
         let fields = getInstFields(m.inst);
         Bool regForm = (fields.op3l == op3l_REG);
         let addr = m.rv1 + (regForm ? (m.rv2 << fields.shamt5) : zeroExtend(fields.imm16));
@@ -118,7 +123,6 @@ module mkMemUnit#(
                     kid: m.kid
                 });
             end else begin
-                putDMemReq(req);
                 currBusiness.enq(ReadBusiness{
                     size: size,
                     offset: offset
@@ -130,6 +134,18 @@ module mkMemUnit#(
                 });
             end
         end 
+
+        if (isStore) begin
+            konataHelper.labelInstLeft(m.kid, $format(" STORE @ %08x", addr));
+        end else begin
+            konataHelper.labelInstLeft(m.kid, $format(" LOAD @ %08x", addr));
+        end
+    endrule
+
+    // Bluespec is being weird with the stalling logic here. Inlining handleRequest here should not make a difference,
+    // but it stalls all instructions, even those which are not going to memory. So I am adding a FIFO between.
+    method Action enq(MemRequest m);
+        reqs.enq(m);
     endmethod
 
     method ActionValue#(ExcResult) deq();

@@ -180,7 +180,7 @@ module mkVROOM (VROOMIfc);
             L1D: dCache.putFromMem(busResp);
             IUNC: begin
                 Vector#(4, IMemResp) iMemResps = unpack(busResp);
-                fromImem.enq(iMemResps[busBusiness.addr_low[3:2]]);
+                fromImem.enq(iMemResps[0]);
             end
             DUNC: begin
                 Vector#(16, DMemResp) dMemResps = unpack(busResp);

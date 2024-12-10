@@ -54,9 +54,11 @@ module mkDecode #(
         let sel = (f2wsResult.fi.pc[31:30] == 2'b11) ? 0 : f2wsResult.fi.pc[3:2];
         ws2d.enq(f2wsResult);
 
+        let inst = swap32(lineVec[sel]);
+
         konataHelper.stageInst(f2wsResult.kid, "WS");
-        konataHelper.labelInstLeft(f2wsResult.kid, $format(" | %08x", lineVec[sel]));
-        decodeWord.enq(lineVec[sel]);
+        konataHelper.labelInstLeft(f2wsResult.kid, $format(" | %08x", inst));
+        decodeWord.enq(inst);
     endrule
 
     rule decode if (fsm.getState() == Steady);
@@ -92,7 +94,7 @@ module mkDecode #(
 
             konataHelper.stageInst(ws2dResult.kid, "D");
             // TODO more informative debugging info here
-            konataHelper.labelInstLeft(ws2dResult.kid, $format(" | WR = %d; RS=[%08x,%08x,%08x]", rd, rv1, rv2, rv3));
+            konataHelper.labelInstLeft(ws2dResult.kid, $format(" | WR = %d; RS=[%0d,%d,%d]", rd, rs1, rs2, rs3));
 
             d2e.enq(D2E {
                 fi: ws2dResult.fi,

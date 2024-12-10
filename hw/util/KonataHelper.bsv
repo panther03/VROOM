@@ -38,7 +38,9 @@ module mkKonata (KonataIntf);
     
     rule tick if (inited);
         $fdisplay(lfh, "C\t1");
+    endrule
 
+    rule deadlockCheck if (inited);
         if (comitting || squashing) 
             deadlockCtr <= 0;
         else 
@@ -54,7 +56,7 @@ module mkKonata (KonataIntf);
         let kid = squashed.first(); squashed.deq();
         squashing.send();
         $fdisplay(lfh, "R\t%d\t%d\t%d", kid, 0, 1);
-        endrule
+    endrule
         
     rule doCommit if (inited);
         let kid = committed.first(); committed.deq();

@@ -73,12 +73,16 @@ module mkCommit #(
         
         if (isValid(finalEcause)) begin
             // exception handling, TODO
-            konataHelper.stageInst(e2wResult.kid, "We");
+            konataHelper.stageInst(e2wResult.kid, "Ce");
+            konataHelper.squashInst(e2wResult.kid);
+        end else if (e2wResult.sr == Poisoned) begin
+            konataHelper.stageInst(e2wResult.kid, "Cp");
             konataHelper.squashInst(e2wResult.kid);
         end
 
+
         if (commitOk) begin
-            konataHelper.stageInst(e2wResult.kid, "W");
+            konataHelper.stageInst(e2wResult.kid, "C");
             konataHelper.commitInst(e2wResult.kid);
             if (isValid(e2wResult.di.rd)) begin
                 konataHelper.labelInstLeft(e2wResult.kid, $format(" | RF [%d]=%08x", rd, ru.data));
