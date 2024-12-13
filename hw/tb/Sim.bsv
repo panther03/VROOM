@@ -152,7 +152,9 @@ module mkSim(Empty);
         let respSource = respTracker.first; respTracker.deq();
         let resp = 512'h0;
         case (respSource)
-            DRAM: resp <- mem.get();
+             DRAM: begin resp <- mem.get();
+             $display("bullhsit");
+    end
             ROM: begin
                 Bit#(32) romWord <- rom.portA.response.get();
                 resp = {480'h0, romWord};

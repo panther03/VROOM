@@ -24,7 +24,7 @@ module mkBranchUnit#(
         // We can just use taken as a trigger for a misprediction, since we always predict not taken.
         let fields = getInstFields(b.inst);
         
-        Bit#(32) immExt = ((fields.op3l == op3l_IMM_GRP000) ? signExtend({fields.imm16,2'h0}) : signExtend(fields.brofs21));
+        Bit#(32) immExt = ((fields.op3l == op3l_IMM_GRP000) ? signExtend({fields.imm16,2'h0}) : signExtend({fields.brofs21,2'h0}));
         let pcPlus4 = b.pc + 4;
         let pc_add = ((fields.op3l == op3l_IMM_GRP000) ? b.rv1 : b.pc) + immExt;
         let n_epoch = currentEpoch() + 1;

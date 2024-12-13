@@ -72,6 +72,8 @@ FN (FormatHandleF) HandleLoadStoreImmFormat (
 
     ra := XR_EXTR_RA(inst)
     rb := XR_EXTR_RB(inst)
+
+    // TODO immediate field is shifted here, should mark this when printing it 
     imm16 := XR_EXTR_IMM16(inst)
 
     IF inst & 1 THEN 
@@ -523,7 +525,7 @@ FN TlMain (
 
     InitTablePointers()
     PrintDisassembly(
-        CAST (ptr + 8) TO ^ULONG,
-        (statrecord.SizeInBytes >> 2) - 2
+        CAST (ptr) TO ^ULONG,
+        (statrecord.SizeInBytes >> 2)
     )
 END

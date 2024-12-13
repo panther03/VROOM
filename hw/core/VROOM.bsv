@@ -36,12 +36,12 @@ endinterface
 /////////////////////
 // Implementation //
 ///////////////////
-typedef enum {L1I, L1D, IUNC, DUNC} BusAccOrigin deriving (Bits, Eq);
+typedef enum {L1I, L1D, IUNC, DUNC} BusAccOrigin deriving (FShow, Bits, Eq);
 
 typedef struct {
     BusAccOrigin origin;
     Bit#(4) addr_low;
-} BusBusiness deriving (Bits);
+} BusBusiness deriving (Bits, FShow);
 
 (* synthesize *)
 module mkVROOM (VROOMIfc);
@@ -78,7 +78,7 @@ module mkVROOM (VROOMIfc);
     FIFO#(BusReq) toBus <- mkFIFO;
     FIFO#(BusResp) fromBus <- mkFIFO;
 
-    FIFO#(BusBusiness) busTracker <- mkFIFO;
+    FIFO#(BusBusiness) busTracker <- mkPipelineFIFO;
     FIFO#(IMemResp) fromImem <- mkBypassFIFO;
     FIFO#(DMemResp) fromDmem <- mkBypassFIFO;
 
@@ -202,11 +202,19 @@ module mkVROOM (VROOMIfc);
     (* descending_urgency = "handleICacheRequest, handleDCacheRequest" *)
     rule handleICacheRequest;
         let cacheReq <- iCache.getToMem();
+        busTracker.enq(BusBusiness {
+            origin: L1I,
+            addr_low: ?
+        });
         toBus.enq(cacheReq);
     endrule
 
     rule handleDCacheRequest;
         let cacheReq <- dCache.getToMem();
+        busTracker.enq(BusBusiness {
+            origin: L1D,
+            addr_low: ?
+        });
         toBus.enq(cacheReq);
     endrule
 

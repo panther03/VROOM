@@ -47,11 +47,6 @@ def convert_rom(inp_rom):
         ind = 0
         line = ""
 
-        # I think Will's ROM format has two words of metadata to start
-        # TODO
-        input.read(4)
-        input.read(4) 
-
         while (word := input.read(4)):
             # should always be able to get a word at a time
             assert len(word) == 4

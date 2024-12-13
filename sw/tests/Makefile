@@ -26,5 +26,5 @@ $(BUILD_DIR)/%.rom: $(SRC_DIR)/%.jkl $(BUILD_DIR)/Init.o $(BUILD_DIR)/Util.o
 	@mkdir -p $(BUILD_DIR)
 	$(JKLC) incdir=$(realpath .)/ $(SRC_DIR)/$*.jkl $(BUILD_DIR)/temp.S
 	$(XRASM) $(BUILD_DIR)/temp.S $(BUILD_DIR)/test.o
-	$(XRLINK) link $@ $(BUILD_DIR)/test.o $(BUILD_DIR)/Init.o $(BUILD_DIR)/Util.o $(LDFLAGS)
+	$(XRLINK) link $@ $(BUILD_DIR)/Init.o $(BUILD_DIR)/Util.o $(BUILD_DIR)/test.o $(LDFLAGS)
 	@rm $(BUILD_DIR)/test.o

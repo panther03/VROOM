@@ -1,6 +1,6 @@
 #INCLUDE "<inc>/Util.hjk"
 
-FN Main () : UWORD
+FN TestMain () : UWORD
     a := 32
     b := 69
     result := SoftMul(a, b)

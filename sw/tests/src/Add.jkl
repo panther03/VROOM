@@ -1,4 +1,4 @@
-FN Main () : UWORD
+FN TestMain () : UWORD
     a := 5
     b := 6
     RETURN a + b

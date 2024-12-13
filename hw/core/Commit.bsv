@@ -40,7 +40,7 @@ module mkCommit #(
             case (e2wResult.di.fu) 
                 // stores don't produce a response, for now
                 // when we add TLB lookup they will
-                LoadStore: if (!isStore) ru <- mu.deq();
+                LoadStore: ru <- mu.deq();
                 Control: ru <- bu.deq();
                 ALU: ru <- alu.deq();
             endcase
@@ -73,6 +73,7 @@ module mkCommit #(
         
         if (isValid(finalEcause)) begin
             // exception handling, TODO
+            $fdisplay(stderr, "Instruction exception due to ECAUSE=%04x", fromMaybe(?, finalEcause));
             konataHelper.stageInst(e2wResult.kid, "Ce");
             konataHelper.squashInst(e2wResult.kid);
         end else if (e2wResult.sr == Poisoned) begin

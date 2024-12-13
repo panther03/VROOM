@@ -1,4 +1,4 @@
-FN Main () : UWORD
+FN TestMain () : UWORD
     a := 99
     b := 47
     RETURN a & b

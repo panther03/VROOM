@@ -1,6 +1,6 @@
 #INCLUDE "<inc>/Util.hjk"
 
-FN Main () : UWORD
+FN TestMain () : UWORD
     s := "Hello, world!\n"
     p := s
     WHILE p < s + 14 DO

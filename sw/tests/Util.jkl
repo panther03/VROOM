@@ -3,7 +3,7 @@
 PrintAddr : ^UBYTE = CAST 0xE000FFF0 TO ^UBYTE
 ExitAddr : ^UWORD = CAST 0xE000FFF8 TO ^UWORD
 
-EXTERN FN Main () : UWORD
+EXTERN FN TestMain () : UWORD
 EXTERN _data : UBYTE
 EXTERN _data_size : UBYTE
 EXTERN _text_size : UBYTE
@@ -20,7 +20,7 @@ FN SetupAndMain() : UWORD
         cnt -= 1
     END
 
-    RETURN Main()
+    RETURN TestMain()
 END
 
 FN SimPutc (

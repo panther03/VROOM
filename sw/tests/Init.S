@@ -75,9 +75,15 @@ FwReset:
     // Set the initial stack pointer to 1024 bytes.
     li   sp, 0x400
 
+    // todo jalling to the routine right after this yields the wrong address?
+    // not sure why
+    mov s1, long [sp + 4]
+    mov s2, long [sp + 8]
+
     jal SetupAndMain
 
     jal SimExit
+    
 
 finish: 
     j finish
