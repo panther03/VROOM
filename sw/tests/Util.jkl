@@ -26,13 +26,15 @@ END
 FN SimPutc (
     IN char : UBYTE
 )
-    PrintAddr^ = char
+    adj := CAST &PrintAddr TO ^^UWORD
+    adj^^ = char
 END
 
 FN SimExit ( 
     IN code : UWORD
 )
-    ExitAddr^ = code
+    adj := CAST &ExitAddr  TO ^^UWORD
+    adj^^ = code
 END
 
 FN SoftMul(

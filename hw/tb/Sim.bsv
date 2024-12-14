@@ -3,6 +3,7 @@ import VROOM::*;
 import BRAM::*;
 import FIFO::*;
 import DelayLine::*;
+import XRUtil::*;
 
 typedef enum {
     DRAM,
@@ -92,10 +93,9 @@ module mkSim(Empty);
             // nothing here atm
         end else begin
             let addr32 = {req.addr, 2'h0};
-            
             // putchar()
             if (addr32 == 32'he000_fff0) begin
-                $fwrite(stderr, "%c", req.data[7:0]);
+                $fwrite(stderr, "%c", req.data[31:24]);
                 $fflush(stderr);
             // exit()
             end else if (addr32 == 32'he000_fff8) begin
@@ -103,7 +103,7 @@ module mkSim(Empty);
                 if (req.data == 0) begin
                     $fdisplay(stderr, "  [0;32mPASS first thread [0m");
                 end else begin
-                    $fdisplay(stderr, "  [0;31mFAIL first thread[0m (%0d)", req.data);
+                    $fdisplay(stderr, "  [0;31mFAIL first thread[0m (%0d)", swap32(req.data[31:0]));
                 end
                 $fflush(stderr);
                 $finish;
@@ -152,9 +152,7 @@ module mkSim(Empty);
         let respSource = respTracker.first; respTracker.deq();
         let resp = 512'h0;
         case (respSource)
-             DRAM: begin resp <- mem.get();
-             $display("bullhsit");
-    end
+            DRAM: resp <- mem.get();
             ROM: begin
                 Bit#(32) romWord <- rom.portA.response.get();
                 resp = {480'h0, romWord};

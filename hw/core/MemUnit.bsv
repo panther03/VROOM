@@ -40,7 +40,7 @@ module mkMemUnit#(
     FIFOF#(ReadBusiness) currBusiness <- mkFIFOF;
     // pipeline FIFO: want to be able to enqueue and dequeue in same cycle,
     // but also have only one state that we need to check
-    FIFOF#(DMemReq) storeQueue <- mkFIFOF;
+    FIFOF#(DMemReq) storeQueue <- mkPipelineFIFOF;
 
 
     rule getMemoryResponse;
@@ -73,7 +73,7 @@ module mkMemUnit#(
     //endrule
 
     rule handleRequest;
-        let m = reqs.first(); reqs.deq();
+        let m = reqs.first();
         let fields = getInstFields(m.inst);
         Bool regForm = (fields.op3l == op3l_REG);
         Bit#(3) lsOpc = regForm ? fields.funct4[2:0] : fields.op3u;
@@ -94,23 +94,31 @@ module mkMemUnit#(
         2'b10: begin byte_en = 4'b1100 >> offset; misaligned = unpack(offset[0]); end
         2'b01: begin byte_en = 4'b1111; misaligned = unpack(|offset); end
         endcase
-        let data = swap32(m.rv2) >> shift_amount;
+        let data = swap32(val) >> shift_amount;
         let req = DMemReq {
             word_byte : m.isStore ? byte_en : 0,
             addr : addr[31:2],
             data : data
         };
+        //$display("request: (real addr %08x) %08x", addr, m.rv3, fshow(req));
         
-        Maybe#(Bit#(32)) sqHead = ?;
+        //Maybe#(Bit#(32)) sqHead = ?;
+
+        Bool safetoDequeue = True;
 
         if (!misaligned) begin
             if (m.isStore) begin
                 storeQueue.enq(req);
-                sqHead = tagged Invalid;
+                //sqHead = tagged Invalid;
             end else if (storeQueue.notEmpty() && storeQueue.first.addr == addr[31:2]) begin
-                sqHead = tagged Valid storeQueue.first.data;
+                //sqHead = tagged Valid storeQueue.first.data;
+                safetoDequeue = False;
             end
         end 
+
+        if (safetoDequeue) begin
+            reqs.deq();
+        end
 
         Maybe#(ExcResult) ru = ?;
 
@@ -126,22 +134,24 @@ module mkMemUnit#(
             };
         end else begin // LOAD
             // Check if there is already a pending store to the same address
-            if (isValid(sqHead)) begin
-                ru = tagged Valid ExcResult {
-                    data: swap32(fromMaybe(?, sqHead)),
-                    ecause: tagged Invalid
-                };
-            end else begin
+            //if (isValid(sqHead)) begin
+            //    $display("store queue stall");
+            //    ru = tagged Valid ExcResult {
+            //        data: swap32(fromMaybe(?, sqHead)),
+            //        ecause: tagged Invalid
+            //    };
+            //end else begin
+                putDMemReq(req);
                 currBusiness.enq(ReadBusiness{
                     size: size,
                     offset: offset
                 });    
                 ru = tagged Invalid;
-            end
+            //end
         end 
 
         if (m.isStore) begin
-            konataHelper.labelInstLeft(m.kid, $format(" STORE @ %08x", addr));
+            konataHelper.labelInstLeft(m.kid, $format(" STORE %08x @ %08x", data, addr));
         end else begin
             konataHelper.labelInstLeft(m.kid, $format(" LOAD @ %08x", addr));
         end

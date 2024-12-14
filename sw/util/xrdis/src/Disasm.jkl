@@ -103,7 +103,7 @@ FN (FormatHandleF) HandleLoadStoreRegFormat (
 
     ra := XR_EXTR_RA(inst)
     rb := XR_EXTR_RB(inst)
-    rc := XR_EXTR_RB(inst)
+    rc := XR_EXTR_RC(inst)
     shamt5 := XR_EXTR_SHAMT(inst)
     sc := ShiftCodes[XR_EXTR_SC(inst)]
 
@@ -122,7 +122,7 @@ FN (FormatHandleF) HandleShiftFormat (
     sc := ShiftCodes[XR_EXTR_SC(inst)]
     ra := XR_EXTR_RA(inst)
     rb := XR_EXTR_RB(inst)
-    rc := XR_EXTR_RB(inst)
+    rc := XR_EXTR_RC(inst)
     TlPrint("%-4s r%d, r%d, r%d\n", sc, ra, rc, rb)
 END
 
@@ -132,7 +132,7 @@ FN (FormatHandleF) HandleArithRegFormat (
     sc := ShiftCodes[XR_EXTR_SC(inst)]
     ra := XR_EXTR_RA(inst)
     rb := XR_EXTR_RB(inst)
-    rc := XR_EXTR_RB(inst)
+    rc := XR_EXTR_RC(inst)
     shamt5 := XR_EXTR_SHAMT(inst)
 
     TlPrint(" r%d, r%d, r%d %s %d\n", ra, rb, rc, sc, shamt5)
@@ -151,7 +151,7 @@ FN (FormatHandleF) Handle3OpFormat (
 )
     ra := XR_EXTR_RA(inst)
     rb := XR_EXTR_RB(inst)
-    rc := XR_EXTR_RB(inst)
+    rc := XR_EXTR_RC(inst)
     TlPrint(" r%d, r%d, r%d\n", ra, rb, rc)
 END
 

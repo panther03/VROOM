@@ -82,6 +82,8 @@ FwReset:
 
     jal SetupAndMain
 
+    mov a0, a3
+
     jal SimExit
     
 

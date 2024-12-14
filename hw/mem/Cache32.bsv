@@ -158,9 +158,7 @@ module mkCache32(Cache32);
                     $display("(cyc=%d) [Load Hit 2] Tag=%d Index=%d Offset=%d Data=%d", cyc, pa.tag, pa.index, pa.offset, word);
                 end
                 hitQ.enq(word);
-                $display("noep");
             end 
-            $display("yeap");
             // If it's not a load, word value is a dont care, we just do this so CPU gets result
             currReqQ.deq();
         end else begin
@@ -240,9 +238,7 @@ module mkCache32(Cache32);
             let mask = {pack(wb3), pack(wb2), pack(wb1), pack(wb0)};
             line_vec[pa.offset] = (word & ~mask) | (currReq.req.data & mask);
             dirty = True;
-            $display("noap");
         end else begin
-            $display("yaep");
             hitQ.enq(word);
         end
         // Update line in CAU
@@ -255,19 +251,19 @@ module mkCache32(Cache32);
         let pa = parseL1Address(e.addr);
         case (hitMissResult)
             LdHit: begin
-                 $display("(cyc=%d) [Load Hit  ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
+                if (debug) $display("(cyc=%d) [Load Hit  ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
                 currReqQ.enq(HitMissDMemReq{req: e, hit: True});
             end
             // StHit don't need to do anything
             StHit: begin
-                 $display("(cyc=%d) [St Hit    ] Tag=%d Index=%d Offset=%d WB=%d Data=%d", cyc, pa.tag, pa.index, pa.offset, e.word_byte, e.data);
+                if (debug) $display("(cyc=%d) [St Hit    ] Tag=%d Index=%d Offset=%d WB=%d Data=%d", cyc, pa.tag, pa.index, pa.offset, e.word_byte, e.data);
                 currReqQ.enq(HitMissDMemReq{req: e, hit: True});
             end
             Miss: begin
-                //if (debug) begin 
+                if (debug) begin 
                     if (e.word_byte == 0) $display("(cyc=%d) [Load Miss ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
                     else $display("(cyc=%d) [St Miss   ] Tag=%d Index=%d Offset=%d WB=%d Data=%d", cyc, pa.tag, pa.index, pa.offset, e.word_byte, e.data);
-                //end
+                end
                 currReqQ.enq(HitMissDMemReq{req: e, hit: False});
             end
         endcase

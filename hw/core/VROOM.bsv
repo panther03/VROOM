@@ -82,6 +82,8 @@ module mkVROOM (VROOMIfc);
     FIFO#(IMemResp) fromImem <- mkBypassFIFO;
     FIFO#(DMemResp) fromDmem <- mkBypassFIFO;
 
+    FIFO#(DMemReq) dmemReqs <- mkFIFO;
+
 
     /////////////////
     // Caches/TLB //
@@ -136,8 +138,8 @@ module mkVROOM (VROOMIfc);
     endaction
     endfunction
 
-    function Action putDMemReq(DMemReq r);
-    action
+    rule handleDMemReqs;
+        let r = dmemReqs.first; dmemReqs.deq();
         // Not using paging and in upper 3GB
         if (!crs.getCurrMode().m && r.addr[29:28] == 2'b11) begin
             toBus.enq(BusReq {
@@ -146,13 +148,20 @@ module mkVROOM (VROOMIfc);
                 addr: r.addr,
                 data: {480'h0, r.data}
             });
-            busTracker.enq(BusBusiness {
-                origin: DUNC,
-                addr_low: {r.addr[3:0]}
-            });
+            if (r.word_byte == 0) begin
+                busTracker.enq(BusBusiness {
+                    origin: DUNC,
+                    addr_low: {r.addr[3:0]}
+                });
+            end
         end else begin
             dCache.putFromProc(r);
         end
+    endrule
+
+    function Action putDMemReq(DMemReq r);
+    action
+        dmemReqs.enq(r);
     endaction
     endfunction
 
@@ -184,7 +193,7 @@ module mkVROOM (VROOMIfc);
             end
             DUNC: begin
                 Vector#(16, DMemResp) dMemResps = unpack(busResp);
-                fromDmem.enq(dMemResps[busBusiness.addr_low[3:0]]);
+                fromDmem.enq(dMemResps[0]);
             end
         endcase
     endrule
@@ -211,10 +220,12 @@ module mkVROOM (VROOMIfc);
 
     rule handleDCacheRequest;
         let cacheReq <- dCache.getToMem();
-        busTracker.enq(BusBusiness {
-            origin: L1D,
-            addr_low: ?
-        });
+        if (cacheReq.byte_strobe == 0) begin
+            busTracker.enq(BusBusiness {
+                origin: L1D,
+                addr_low: ?
+            });
+        end
         toBus.enq(cacheReq);
     endrule
 
