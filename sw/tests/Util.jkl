@@ -30,6 +30,16 @@ FN SimPutc (
     adj^^ = char
 END
 
+FN PrintNum(
+    IN x: UWORD
+)
+    SimPutc('0')
+    SimPutc('x')
+    SimPutc(0x30 + ((x >> 4) & 0xF))
+    SimPutc(0x30 + (x & 0xF))
+    SimPutc(0xA)
+END
+
 FN SimExit ( 
     IN code : UWORD
 )

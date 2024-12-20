@@ -13,6 +13,7 @@ FN TestMain () : UWORD
         p := s
         WHILE p < s + 14 DO
             SimPutc(p^)
+            p += 1
         END
         SimPutc(0x30 + (CAST result TO UBYTE))
         RETURN 1

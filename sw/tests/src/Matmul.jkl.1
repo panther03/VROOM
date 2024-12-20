@@ -2,13 +2,13 @@
 
 FN ArrEquals(
     IN a : ^UWORD,
-    IN b : ^UWORD
+    IN b : ^UWORD,
 ) : UWORD
     i := 0
     j := 0
-    WHILE i < 16 DO
-        WHILE j < 16 DO
-            IF a[(i << 4) + j] != b[(i << 4) + j] THEN 
+    WHILE i < {N} DO
+        WHILE j < {N} DO
+            IF a[(i << {Nbits}) + j] != b[(i << {Nbits}) + j] THEN 
                 RETURN 0
             END
             j += 1
@@ -18,10 +18,10 @@ FN ArrEquals(
     RETURN 1
 END
 
-A : UWORD[16][16]
-B : UWORD[16][16]
-C : UWORD[16][16]
-Expected : UWORD[16][16]
+A : UWORD[{N*N}]
+B : UWORD[{N*N}]
+C : UWORD[{N*N}]
+Expected : UWORD[{N*N}]
 
 FN TestMain () : UWORD
     i := 0

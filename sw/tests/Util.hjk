@@ -4,6 +4,10 @@ EXTERN FN SimPutc (
     IN char : UBYTE
 )
 
+EXTERN FN PrintNum(
+    IN x: UWORD
+)
+
 EXTERN FN SimExit ( 
     IN code: UWORD
 )
