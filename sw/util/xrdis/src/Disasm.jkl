@@ -1,6 +1,8 @@
 #INCLUDE "<inc>/XrDefs.hjk"
 #INCLUDE "<ll>/Runtime.hjk"
 
+PcBase : UWORD = 0xFFFE0000
+
 MemOpsSizeTable : ^UBYTE[4] = {
     [1] = "LONG",
     [2] = "INT",
@@ -42,25 +44,59 @@ ControlRegs : ^UBYTE[32] = {
 }
 
 FN (FormatHandleF) HandleBranchFormat (
-    IN inst : ULONG
+    IN inst : ULONG,
+    IN ind : UWORD,
+    IN size : UWORD,
+    IN labels : ^ULONG
 )
-    TlPrint(" r%d, %08x\n", XR_EXTR_RA(inst), XR_EXTR_BROFS21(inst))
+    pc := (ind << 2) + PcBase
+    bofs := XR_EXTR_BROFS21(inst) << 2
+    // sign extend
+    IF (bofs & (1<<22)) THEN
+        bofs += 0xFF800000
+    END
+    lpc : ULONG
+    lpc = (bofs + pc) & 0xFFFFFFFF
+    labelind := (lpc - PcBase) >> 2
+    IF labelind >= 0 AND labelind < size THEN
+        TlPrint(" r%d, %c[0;36m<l%d>%c[0m\n", XR_EXTR_RA(inst), 0x1B, labels[labelind], 0x1B)
+    ELSE 
+        TlPrint(" r%d, ???\n", XR_EXTR_RA(inst))
+    END
+    
 END
 
 FN (FormatHandleF) HandleJumpFormat (
-    IN inst : ULONG
+    IN inst : ULONG,
+    IN ind : UWORD,
+    IN size : UWORD,
+    IN labels : ^ULONG
 )
-    TlPrint(" %08x\n", XR_EXTR_JT29(inst))
+    pc := PcBase + (ind << 2)
+    jt := XR_EXTR_JT29(inst)
+    lpc := (jt << 2) | (pc & 0x80000000)
+    labelind := (lpc - PcBase) >> 2
+    IF labelind >= 0 AND labelind < size THEN
+        TlPrint(" %c[0;36m<l%d>%c[0m\n", 0x1B, labels[labelind], 0x1B)
+    ELSE
+        TlPrint(" ???\n")
+    END
 END
 
 FN (FormatHandleF) HandleArithImmFormat (
-    IN inst : ULONG
+    IN inst : ULONG,
+    IN ind : UWORD,
+    IN size : UWORD,
+    IN labels : ^ULONG
 )
     TlPrint(" r%d, r%d, %x\n", XR_EXTR_RA(inst), XR_EXTR_RB(inst), XR_EXTR_IMM16(inst))
 END
 
 FN (FormatHandleF) HandleLoadStoreImmFormat (
-    IN inst : ULONG
+    IN inst : ULONG,
+    IN ind : UWORD,
+    IN size : UWORD,
+    IN labels : ^ULONG
 )
     opsize := MemOpsSizeTable[(inst >> 3) & 0x3]
     IF opsize == NULLPTR THEN
@@ -93,7 +129,10 @@ FN (FormatHandleF) HandleLoadStoreImmFormat (
 END
 
 FN (FormatHandleF) HandleLoadStoreRegFormat (
-    IN inst : ULONG
+    IN inst : ULONG,
+    IN ind : UWORD,
+    IN size : UWORD,
+    IN labels : ^ULONG
 )
     opsize := MemOpsSizeTable[(inst >> 3) & 0x3]
     IF opsize == NULLPTR THEN
@@ -109,15 +148,18 @@ FN (FormatHandleF) HandleLoadStoreRegFormat (
 
     IF inst & 1 THEN 
         // Instruction is a load.
-        TlPrint(" r%d, %s [r%d + r%d %s %d]\n", ra, opsize, rb, rc, sc, shamt5)
+        TlPrint("MOV  r%d, %s [r%d + r%d %s %d]\n", ra, opsize, rb, rc, sc, shamt5)
     ELSE 
         // Instruction is a store.
-        TlPrint(" %s [r%d + r%d %s %d], r%d\n", opsize, rb, rc, sc, shamt5, ra)
+        TlPrint("MOV  %s [r%d + r%d %s %d], r%d\n", opsize, rb, rc, sc, shamt5, ra)
     END
 END
 
 FN (FormatHandleF) HandleShiftFormat (
-    IN inst : ULONG
+    IN inst : ULONG,
+    IN ind : UWORD,
+    IN size : UWORD,
+    IN labels : ^ULONG
 )
     sc := ShiftCodes[XR_EXTR_SC(inst)]
     ra := XR_EXTR_RA(inst)
@@ -127,7 +169,10 @@ FN (FormatHandleF) HandleShiftFormat (
 END
 
 FN (FormatHandleF) HandleArithRegFormat (
-    IN inst : ULONG
+    IN inst : ULONG,
+    IN ind : UWORD,
+    IN size : UWORD,
+    IN labels : ^ULONG
 )
     sc := ShiftCodes[XR_EXTR_SC(inst)]
     ra := XR_EXTR_RA(inst)
@@ -139,7 +184,10 @@ FN (FormatHandleF) HandleArithRegFormat (
 END
 
 FN (FormatHandleF) Handle2OpFormat (
-    IN inst : ULONG
+    IN inst : ULONG,
+    IN ind : UWORD,
+    IN size : UWORD,
+    IN labels : ^ULONG
 )
     ra := XR_EXTR_RA(inst)
     rb := XR_EXTR_RB(inst)
@@ -147,7 +195,10 @@ FN (FormatHandleF) Handle2OpFormat (
 END
 
 FN (FormatHandleF) Handle3OpFormat (
-    IN inst : ULONG
+    IN inst : ULONG,
+    IN ind : UWORD,
+    IN size : UWORD,
+    IN labels : ^ULONG
 )
     ra := XR_EXTR_RA(inst)
     rb := XR_EXTR_RB(inst)
@@ -156,7 +207,10 @@ FN (FormatHandleF) Handle3OpFormat (
 END
 
 FN (FormatHandleF) HandleMcrFormat (
-    IN inst : ULONG
+    IN inst : ULONG,
+    IN ind : UWORD,
+    IN size : UWORD,
+    IN labels : ^ULONG
 )
     ra := XR_EXTR_RA(inst)
     rb := XR_EXTR_RB(inst)
@@ -430,10 +484,15 @@ END
 
 FN PrintDisassembly (
     IN buf : ^ULONG,
+    IN labels : ^ULONG,
     IN size: ULONG
 )
     ind := 0
     WHILE ind < size DO
+        IF labels[ind] != 0 THEN
+            TlPrint ("\t%c[0;36m<l%d>:%c[0m\n", 0x1B, labels[ind], 0x1B)
+        END
+
         inst := buf[ind]
         TlPrint ( "%04x : %08x : ", ind * 4, inst)
         instsr := (XR_EXTR_FUNCT4(inst) << 16) | (XR_EXTR_OP3U(inst) << 8) | XR_EXTR_OP3L(inst)
@@ -461,7 +520,51 @@ FN PrintDisassembly (
             TlPrint ( "%-4s", currentry^.Opcode )
         END
         IF formatfn != NULLPTR THEN 
-            formatfn(inst)
+            formatfn(inst, ind-1, size, labels)
+        ELSE 
+            TlPrint( "\n" )
+        END
+    END
+END
+
+FN AnalyzeLabels (
+    IN buf: ^ULONG,
+    IN labels: ^ULONG,
+    IN size: ULONG
+) 
+    ind := 0
+    cnt := 1
+    WHILE ind < size DO
+        inst := buf[ind]
+        entry := &Op3lTable[XR_EXTR_OP3L(inst)]
+        pc := (ind << 2) + PcBase
+
+        ind += 1
+
+        labelind : UWORD
+        IF entry^.Format == XR_FORMAT_JUMP THEN
+            jt := XR_EXTR_JT29(inst)
+            lpc := (jt << 2) | (pc & 0x80000000)
+            labelind = (lpc - PcBase) >> 2
+        ELSEIF entry^.Format == XR_FORMAT_BRANCH THEN
+            bofs := XR_EXTR_BROFS21(inst) << 2
+            // sign extend
+            IF (bofs & (1<<22)) THEN
+                bofs += 0xFF800000
+            END
+            lpc : ULONG
+            lpc = (bofs + pc) & 0xFFFFFFFF
+            labelind = (lpc - PcBase) >> 2
+        ELSE
+            CONTINUE
+        END
+        IF labelind < size AND labelind >= 0 THEN
+            IF labels[labelind] == 0 THEN
+                labels[labelind] = cnt
+                cnt += 1 
+            END
+        ELSE 
+            TlPrint ( "label out of range (%d): %08x\n", size, labelind)
         END
     END
 END
@@ -509,10 +612,22 @@ FN TlMain (
     // Allocate a buffer to contain the file contents.
 
     ptr : ^UBYTE
+    labels : ^UBYTE
 
     status = TlAlloc (
         statrecord.SizeInBytes, // bytes
         OUT ptr, // ptr
+    )
+
+    status = TlAlloc (
+        statrecord.SizeInBytes, // bytes
+        OUT labels, // ptr
+    )
+
+    TlFillMemoryWithByte (
+        labels,
+        statrecord.SizeInBytes,
+        0
     )
 
     // Read the file.
@@ -524,8 +639,14 @@ FN TlMain (
     )
 
     InitTablePointers()
+    AnalyzeLabels(
+        CAST (ptr) TO ^ULONG,
+        CAST (labels) TO ^ULONG,
+        (statrecord.SizeInBytes >> 2)
+    )
     PrintDisassembly(
         CAST (ptr) TO ^ULONG,
+        CAST (labels) TO ^ULONG,
         (statrecord.SizeInBytes >> 2)
     )
 END

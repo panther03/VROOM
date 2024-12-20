@@ -21,7 +21,10 @@ STRUCT DisasmTableEntry
 END
 
 FNPTR FormatHandleF (
-    IN inst : ULONG
+    IN inst : ULONG,
+    IN ind : UWORD,
+    IN size : UWORD,
+    IN labels : ^ULONG,
 )
 
 #DEFINE XR_OP3L_JAL     0x7
@@ -119,5 +122,5 @@ FNPTR FormatHandleF (
 #MACRO XR_EXTR_SC ( inst ) [ (inst >> 25) & (0x3) ]
 #MACRO XR_EXTR_SHAMT ( inst ) [ (inst >> 20) & (0x1F) ]
 
-#DEFINE COLOR_OPC "\e[0;32m"
-#DEFINE COLOR_NORMAL "\e[0m"
+#DEFINE COLOR_OPC "[0;32m"
+#DEFINE COLOR_NORMAL "[0m"
