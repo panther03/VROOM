@@ -1,6 +1,6 @@
 import numpy as np
 
-Nbits = 1
+Nbits = 4
 N = 1 << Nbits
 
 A = np.random.randint(0,(1<<32)-1, size=(N,N))
@@ -8,7 +8,7 @@ B = np.random.randint(0,(1<<32)-1, size=(N,N))
 
 for i in range(N):
     for j in range(N):
-        A[i][j] = i
+        A[i][j] = i + 1
         B[i][j] = i + j
         
 Expected = np.matmul(A,B)
@@ -57,6 +57,7 @@ FN TestMain () : UWORD
     i := 0
     j := 0
     WHILE i < {N} DO
+        j = 0
         WHILE j < {N} DO
             INDEX2(A,i,j) = i+1
             INDEX2(B,i,j) = i + j
@@ -78,15 +79,12 @@ FN TestMain () : UWORD
                 k += 1
             END
             INDEX2(C,i,j) = sum
-            SimPutc(0x30 + (sum & 0xF))
-            SimPutc(0x30 + ((sum >> 4) & 0xF))
-            SimPutc(0xA)
             j += 1
         END
         i += 1
     END
 
-    RETURN ArrEquals(&C[0], &Expected[0])
+    RETURN NOT ArrEquals(&C[0], &Expected[0])
 END
 """
 
