@@ -20,7 +20,7 @@ module mkFetch #(
     Ehr#(2, Epoch) epoch <- mkEhr(2'h0);
     Reg#(Bit#(28)) lastImemAddr <- mkReg(28'h0);
         
-    rule fetch if (fsm.getState() == Steady);
+    rule fetch if (fsm.runOk());
         Bit#(32) pc_next = pc[0] + 4;
 
         pc[0] <= pc_next;
@@ -44,7 +44,7 @@ module mkFetch #(
         f2d.enq(F2D {
             fi: FetchInfo {
                 pc: pc[0],       // Current PC
-                // npc: pc_next, // Next PC
+                npc: pc_next, // Next PC
                 epoch: epoch[0]
             },
             sr: None, // TODO misalignment exception

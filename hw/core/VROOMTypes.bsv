@@ -6,7 +6,7 @@ import KonataHelper::*;
 typedef enum {
     Starting,
     Steady,
-    SerialMtcr,
+    Serial,
     Exception
 } VROOMState deriving (Eq, FShow, Bits);
 
@@ -14,6 +14,7 @@ typedef enum {
     None,
     MisalignFetch,
     DecodeInvalid,
+    PrivilegeFail,
     Poisoned
 } SquashReason deriving (Eq, FShow, Bits);
 
@@ -28,18 +29,27 @@ typedef RegFile#(Bit#(5), Bit#(32)) VROOMRf;
 typedef struct {
     Bit#(32) data;
     Maybe#(Bit#(4)) ecause;
-} ExcResult deriving (Eq, FShow, Bits);
+} ExcResult deriving (Eq, FShow, Bits); // TODO: rename to something that doesnt sound like "exception"
+
+typedef struct {
+    Bit#(4) ecause;
+} ExceptionRequest deriving (Eq, FShow, Bits);
 
 typedef struct {
     // Current PC (address of executing instruction)
     Bit#(32) pc;
-    // Next PC -- do we even need this?
-    // Bit#(32) npc;
+    // Predicted next PC
+    Bit#(32) npc;
     // Epoch (for squashing branches)
     Epoch epoch;
 } FetchInfo deriving (Eq, FShow, Bits);
 
-typedef FetchInfo ControlRedirection;
+typedef struct {
+    // New PC
+    Bit#(32) pc;
+    // New epoch
+    Epoch epoch;
+} ControlRedirection deriving (Eq, FShow, Bits);
 
 typedef struct {
     Bit#(32) rv1;
@@ -67,6 +77,7 @@ typedef struct {
 } D2E deriving (Eq, FShow, Bits);
 
 typedef struct {
+    FetchInfo fi;
     DecodedInst di;
     SquashReason sr;
     KonataId kid;

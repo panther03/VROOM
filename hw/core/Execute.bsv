@@ -28,7 +28,7 @@ module mkExecute #(
     ControlRegs crs
 )(ExecuteIntf);
 
-    rule execute if (fsm.getState() == Steady);
+    rule execute if (fsm.runOk());
         let d2eResult = d2e.first();
         d2e.deq();
 
@@ -40,6 +40,11 @@ module mkExecute #(
         if (currentEpoch() != d2eResult.fi.epoch) begin
             konataHelper.stageInst(d2eResult.kid, "Xp");
             sr = Poisoned;
+        end
+
+        // Privilege check - are we executing prvilieged instruction in user mode
+        if (crs.getCurrMode().u && d2eResult.di.priv) begin
+            sr = PrivilegeFail;
         end
 
         if (stillValid(sr)) case (d2eResult.di.fu) 
@@ -73,6 +78,7 @@ module mkExecute #(
         endcase
         
         e2w.enq(E2W {
+            fi: d2eResult.fi,
             di: d2eResult.di,
             sr: sr,
             kid: d2eResult.kid

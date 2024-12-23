@@ -4,6 +4,7 @@ import SpecialFIFOs::*;
 import MemTypes::*;
 import XRUtil::*;
 import VROOMTypes::*;
+import VROOMFsm::*;
 import KonataHelper::*;
 
 typedef struct {
@@ -30,6 +31,7 @@ interface MemUnit;
 endinterface
 
 module mkMemUnit#(
+    VROOMFsm fsm,
     KonataIntf konataHelper,
     function Action putDMemReq(DMemReq r),
     function ActionValue#(DMemResp) getDMemResp
@@ -43,7 +45,7 @@ module mkMemUnit#(
     FIFOF#(DMemReq) storeQueue <- mkPipelineFIFOF;
 
 
-    rule getMemoryResponse;
+    rule getMemoryResponse if (fsm.runOk());
         let stage1_res = stage1.first(); stage1.deq();
         konataHelper.stageInst(stage1_res.kid, "Xm2");
         if (!isValid(stage1_res.ru)) begin
@@ -72,7 +74,7 @@ module mkMemUnit#(
     //    
     //endrule
 
-    rule handleRequest;
+    rule handleRequest if (fsm.runOk());
         let m = reqs.first();
         let fields = getInstFields(m.inst);
         Bool regForm = (fields.op3l == op3l_REG);

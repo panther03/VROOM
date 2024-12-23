@@ -88,7 +88,14 @@ Bit#(4) fn4_OR          = 4'b0001;
 Bit#(4) fn4_NOR         = 4'b0000;
 
 Bit#(3) op3u_REG_110    = 3'b110;
-// TODO implement these opcodes
+Bit#(4) fn4_MUL         = 4'b1111;
+Bit#(4) fn4_DIV         = 4'b1101;
+Bit#(4) fn4_DIVS        = 4'b1100;
+Bit#(4) fn4_MOD         = 4'b1011;
+Bit#(4) fn4_LL          = 4'b1001;
+Bit#(4) fn4_SC          = 4'b1000;
+Bit#(4) fn4_MB          = 4'b0011;
+Bit#(4) fn4_WMB         = 4'b0010;
 
 Bit#(3) op3u_REG_101    = 3'b101;
 Bit#(4) fn4_MFCR        = 4'b1111;
@@ -126,6 +133,8 @@ typedef struct {
     Maybe#(Bit#(5)) rs2;
     Maybe#(Bit#(5)) rs3;
     Maybe#(Bit#(5)) rd;
+    Bool serial;
+    Bool priv;
     Bit#(32) inst;
     FunctUnit fu;
 } DecodedInst deriving (Eq, FShow, Bits);
@@ -146,6 +155,9 @@ function Bool isLegal(InstFields fields);
     op3l_IMM_GRP000: fields.op3u == op3u_JALR;
     op3l_REG: case (fields.op3u)
         op3u_REG_111: True;
+        op3u_REG_110: case (fields.funct4)
+            fn4_MB, fn4_WMB: True;
+        endcase
         op3u_REG_101: case (fields.funct4)
             fn4_MFCR, fn4_MTCR, fn4_HLT, fn4_RFE: True;
         endcase
@@ -241,6 +253,19 @@ function Maybe#(Bit#(5)) getRS3(InstFields fields);
     endcase;
 endfunction
 
+function Bool isSerialInst(InstFields fields);
+    return case (fields.op3l)
+        op3l_REG: case (fields.op3u)
+            op3u_REG_101: case (fields.funct4)
+                fn4_MTCR, fn4_RFE: True;
+                default: False;
+            endcase
+            default: False;
+        endcase
+        default: False;
+    endcase;
+endfunction
+
 function DecodedInst decodeInst(Bit#(32) inst);
     let fields = getInstFields(inst);
     return DecodedInst {
@@ -249,6 +274,8 @@ function DecodedInst decodeInst(Bit#(32) inst);
         rs2: getRS2(fields),
         rs3: getRS3(fields),
         rd: getRD(fields),
+        priv: ((fields.op3l == op3l_REG) && (fields.op3u == op3u_REG_101)),
+        serial: isSerialInst(fields),
         fu: getFU(fields),
         inst: inst
     };

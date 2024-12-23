@@ -50,6 +50,8 @@ interface ControlRegs;
     method Action writeCR(Bit#(5) idx, Bit#(32) val);
     method Bit#(32) readCR(Bit#(5) idx);
     method ModeByte getCurrMode();
+    method Action setEpc(Bit#(32) pc);
+    method Action updateRsForExc(Bit#(4) ecause);
 endinterface
 
 module mkCRS (ControlRegs);
@@ -66,5 +68,19 @@ module mkCRS (ControlRegs);
     method ModeByte getCurrMode();
         RS rs = unpack(crf[pack(RS)][0]);
         return rs.curr;
+    endmethod
+
+    method Action setEpc(Bit#(32) pc);
+        crf[pack(EPC)][1] <= pc;
+    endmethod
+
+    method Action updateRsForExc(Bit#(4) ecause);
+        RS newRs = unpack(crf[pack(RS)][0]);
+        newRs.oldold = newRs.old;
+        newRs.old = newRs.curr;
+        // for now: always disable usermode and external interrupts
+        newRs.curr = unpack({pack(newRs.curr)[7:2], 2'b00});
+        newRs.ecause = ecause;
+        crf[pack(RS)][1] <= pack(newRs);
     endmethod
 endmodule

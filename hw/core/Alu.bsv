@@ -96,16 +96,10 @@ module mkAlu #(
         let data = (regForm && is_reg_shamt) ? op2 : alu32(op1, op2, aluOp, regForm);
         Maybe#(Bit#(4)) ecause = tagged Invalid;
         if (fields.op3u == op3u_REG_101) begin
-            // user mode is active? generate exception
-            if (crs.getCurrMode().u) begin
-                ecause = tagged Valid 4'd8;
-                data = ?;
+            if (unpack(fields.funct4[0])) begin
+                data = crs.readCR(fields.regC);
             end else begin
-                if (unpack(fields.funct4[0])) begin
-                    data = crs.readCR(fields.regC);
-                end else begin
-                    crs.writeCR(fields.regC, op1);
-                end
+                data = op1;
             end
         end
         results.enq(ExcResult {

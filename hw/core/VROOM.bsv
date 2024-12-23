@@ -22,6 +22,7 @@ import Execute::*;
 import Commit::*; 
 import Alu::*;
 import BranchUnit::*;
+import Exceptions::*;
 import MemUnit::*;
 
 import Cache32::*;
@@ -51,6 +52,11 @@ module mkVROOM (VROOMIfc);
     VROOMFsm fsm <- mkVROOMFsm();
     ControlRegs crs <- mkCRS;
 
+    // Architectural fetch state (next pc, epoch)
+    // This is where we resume to when an exception happens.
+    Ehr#(2, Bit#(32)) npc <- mkEhr(32'hFFFE1000);
+    Ehr#(2, Epoch) epoch <- mkEhr(2'h0);
+
     ////////////////////////////////
     // Stages + Functional Units //
     //////////////////////////////
@@ -58,6 +64,7 @@ module mkVROOM (VROOMIfc);
     DecodeIntf decode;
     ExecuteIntf execute;
     CommitIntf commit;
+    ExceptionsIntf exceptions;
 
     Alu alu;
     BranchUnit bu;
@@ -105,7 +112,25 @@ module mkVROOM (VROOMIfc);
         konataHelper.init("konata.log");
         fsm.trs_Start();
     endrule
-    
+
+    ///////////////////////////////////
+    // Architectural state handling //
+    /////////////////////////////////
+   
+    function Epoch archEpoch();
+        return epoch[0];
+    endfunction
+
+    function Bit#(32) archNextPc();
+        return npc[0];
+    endfunction
+
+    function Action redirectArchState(ControlRedirection cr);
+    action
+        npc[1] <= cr.pc;
+        epoch[1] <= cr.epoch;
+    endaction
+    endfunction
 
     ///////////////////////////////
     // Memory/Cache Interfacing //
@@ -244,9 +269,11 @@ module mkVROOM (VROOMIfc);
     );
     bu <- mkBranchUnit(
         fetch.redirect,
-        fetch.currentEpoch
+        fetch.currentEpoch,
+        archEpoch
     );
     mu <- mkMemUnit(
+        fsm,
         konataHelper,
         putDMemReq,
         getDMemResp
@@ -270,16 +297,38 @@ module mkVROOM (VROOMIfc);
         alu,
         crs
     );
+    exceptions <- mkExceptions(
+        fsm,
+        konataHelper,
+        crs,
+        archNextPc,
+        fetch.currentEpoch,
+        fetch.redirect,
+        redirectArchState
+    );
     commit <- mkCommit(
         fsm,
         konataHelper,
         e2w,
         decode.freeRegister,
         decode.writeRf,
+        exceptions.putSyncException,
+        archEpoch,
+        redirectArchState,
         mu,
         bu,
-        alu
+        alu,
+        crs
     );
+   
+
+    rule handleAsyncException;
+        // TODO: no idea how to do a wire input for the IRQ properly
+        if (False) begin
+            fsm.trs_EnterASyncException();
+            exceptions.putASyncException();
+        end
+    endrule
 
     //////////////////
     // Bus Methods //
