@@ -39,7 +39,7 @@ module mkFetch #(
 
         let kid <- konataHelper.declareInst(tagged Invalid);
         konataHelper.stageInst(kid, needsNewFetch ? "Fn" : "Fo");
-        konataHelper.labelInstLeft(kid, $format("PC=%08x", pc[0]));
+        konataHelper.labelInstLeft(kid, $format("PC=%08x (e%d)", pc[0], epoch[0]));
 
         f2d.enq(F2D {
             fi: FetchInfo {

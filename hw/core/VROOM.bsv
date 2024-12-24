@@ -46,11 +46,20 @@ typedef struct {
 
 (* synthesize *)
 module mkVROOM (VROOMIfc);
+    /////////////////
+    // Caches/TLB //
+    ///////////////
+    ICache iCache <- mkICache;
+    Cache32 dCache <- mkCache32;
+
     ///////////////////////
     // Global CPU state //
     /////////////////////
     VROOMFsm fsm <- mkVROOMFsm();
-    ControlRegs crs <- mkCRS;
+    ControlRegs crs <- mkCRS(
+        iCache.invalidateLines(),
+        dCache.invalidateLines()
+    );
 
     // Architectural fetch state (next pc, epoch)
     // This is where we resume to when an exception happens.
@@ -90,13 +99,6 @@ module mkVROOM (VROOMIfc);
     FIFO#(DMemResp) fromDmem <- mkBypassFIFO;
 
     FIFO#(DMemReq) dmemReqs <- mkFIFO;
-
-
-    /////////////////
-    // Caches/TLB //
-    ///////////////
-    ICache iCache <- mkICache;
-    Cache32 dCache <- mkCache32;
 
 
     /////////////////////
@@ -276,7 +278,9 @@ module mkVROOM (VROOMIfc);
         fsm,
         konataHelper,
         putDMemReq,
-        getDMemResp
+        getDMemResp,
+        dCache.putFlushRequest,
+        dCache.blockTillFlushDone
     );
     decode <- mkDecode(
         fsm,

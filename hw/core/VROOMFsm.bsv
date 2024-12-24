@@ -26,6 +26,7 @@ module mkVROOMFsm(VROOMFsm);
             Starting: if (startEn) state <= Steady;
             Steady: if (enterASExcEn || enterSExcEn) state <= Exception; else if (stopDecode) state <= Serial;
             Serial: if (enterASExcEn || enterSExcEn) state <= Exception; else if (restartDecode) state <= Steady;
+            Exception: if (finishException) state <= Steady;
         endcase
     endrule
 

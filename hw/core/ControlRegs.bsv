@@ -1,23 +1,22 @@
 import Vector::*;
 import Ehr::*;
+import MemTypes::*;
 
-// TODO: ordering??
-// assuming low bits come first
 typedef struct {
-    Bool u;
-    Bool i;
-    Bool m;
+    Bit#(4) mbz;
     Bool t;
-    Bit#(4) mbz;
-} ModeByte deriving (Bits);
+    Bool m;
+    Bool i;
+    Bool u;
+} ModeByte deriving (FShow, Bits);
 
 typedef struct {
-    ModeByte curr;
-    ModeByte old;
-    ModeByte oldold;
-    Bit#(4) mbz;
     Bit#(4) ecause;
-} RS deriving (Bits);
+    Bit#(4) mbz;
+    ModeByte oldold;
+    ModeByte old;
+    ModeByte curr;
+} RS deriving (FShow, Bits);
 
 typedef enum {
     RS          = 5'd0,
@@ -49,19 +48,45 @@ typedef enum {
 interface ControlRegs;
     method Action writeCR(Bit#(5) idx, Bit#(32) val);
     method Bit#(32) readCR(Bit#(5) idx);
+    method Bit#(32) readCRRaw(Bit#(5) idx);
     method ModeByte getCurrMode();
     method Action setEpc(Bit#(32) pc);
     method Action updateRsForExc(Bit#(4) ecause);
 endinterface
 
-module mkCRS (ControlRegs);
-    Vector#(32, Ehr#(2, Bit#(32))) crf <- replicateM(mkEhr(32'h0));
+module mkCRS #(
+    function Action icacheClearLines(),
+    function Action dcacheClearLines()
+) (ControlRegs);
+
+    Vector#(32, Ehr#(2, Bit#(32))) crf;
+    
+    Integer i;
+    for ( i = 0; i < 32; i = i + 1 ) begin
+        if (fromInteger(i) == pack(ICACHECTRL) || fromInteger(i) == pack(DCACHECTRL))
+            crf[i] <- mkEhr(cacheCtrlWord);
+        else
+            crf[i] <- mkEhr(32'h0);
+    end
 
     method Action writeCR(Bit#(5) idx, Bit#(32) val);
-        crf[idx][0] <= val;
+        if (idx == pack(ICACHECTRL) && unpack(val[1])) begin
+            icacheClearLines();
+        end else if (idx == pack(DCACHECTRL) && unpack(val[1])) begin
+            dcacheClearLines();
+        end else begin
+            crf[idx][0] <= val;
+        end
+    endmethod
+
+    method Bit#(32) readCRRaw(Bit#(5) idx);
+        return crf[idx][0];
     endmethod
 
     method Bit#(32) readCR(Bit#(5) idx);
+        //if (idx == pack(ICACHECTRL) || idx) begin
+        //    return cacheCtrlWord;
+        //end
         return crf[idx][0];
     endmethod
 

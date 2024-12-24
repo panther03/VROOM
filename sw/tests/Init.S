@@ -4,51 +4,51 @@
 .extern SimExit
 
 // vector 0 - nothing
-    nop
+    hlt
 
 .align 256
 // vector 1 - interrupt
-    nop
+    hlt
 
 .align 256
 // vector 2 - syscall
-    nop
+    hlt
 
 .align 256
 // vector 3 - nothing
-    nop
+    hlt
 
 .align 256
 // vector 4 - bus error
-    nop
+    hlt
 
 .align 256
 // vector 5 - NMI
-    nop
+    hlt
 
 .align 256
 // vector 6 - breakpoint
-    nop
+    hlt
 
 .align 256
 // vector 7 - illegal instruction
-    nop
+    hlt
 
 .align 256
 // vector 8 - privilege violation
-    nop
+    hlt
 
 .align 256
 // vector 9 - unaligned address
-    nop
+    hlt
 
 .align 256
 // vector 10 - nothing
-    nop
+    hlt
 
 .align 256
 // vector 11 - nothing
-    nop
+    hlt
 
 .align 256
 // vector 12 - page fault read

@@ -44,7 +44,7 @@ module mkExceptions #(
         // https://github.com/xrarch/xremu/blob/92be4f224aa1395b1462757353d6a2248192b958/src/xr17032mp.c#L174
         // not sure if just safety precaution
         // TODO: could make horribly slow hardware if it doesn't inline readCR
-        Bit#(32) npc = {(crs.readCR(pack(EB)))[31:12], erReg.ecause, 8'h0};
+        Bit#(32) npc = {(crs.readCRRaw(pack(EB)))[31:12], erReg.ecause, 8'h0};
         let cr = ControlRedirection {
             pc: npc,
             epoch: frontendEpoch() + 2'h1

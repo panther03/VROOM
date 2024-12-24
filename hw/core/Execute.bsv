@@ -50,14 +50,17 @@ module mkExecute #(
         if (stillValid(sr)) case (d2eResult.di.fu) 
             LoadStore: begin 
                 konataHelper.stageInst(d2eResult.kid, "Xm0");
-                mu.enq(MemRequest {
-                    rv1: d2eResult.ops.rv1,
-                    rv2: d2eResult.ops.rv2,
-                    rv3: d2eResult.ops.rv3,
-                    inst: d2eResult.di.inst,
-                    kid: d2eResult.kid,
-                    isStore: isValid(d2eResult.di.rs3)
-                });
+                if (d2eResult.di.barrier) 
+                    mu.enq(tagged Barrier);
+                else
+                    mu.enq(tagged LoadStore (MemRequest {
+                        rv1: d2eResult.ops.rv1,
+                        rv2: d2eResult.ops.rv2,
+                        rv3: d2eResult.ops.rv3,
+                        inst: d2eResult.di.inst,
+                        kid: d2eResult.kid,
+                        isStore: isValid(d2eResult.di.rs3)
+                    }));
             end
             ALU: begin
                 konataHelper.stageInst(d2eResult.kid, "Xa");

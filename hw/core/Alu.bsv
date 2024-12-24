@@ -95,7 +95,7 @@ module mkAlu #(
         Bit#(3) aluOp = regForm ? fields.funct4[2:0] : fields.op3u;
         let data = (regForm && is_reg_shamt) ? op2 : alu32(op1, op2, aluOp, regForm);
         Maybe#(Bit#(4)) ecause = tagged Invalid;
-        if (fields.op3u == op3u_REG_101) begin
+        if (regForm && fields.op3u == op3u_REG_101) begin
             if (unpack(fields.funct4[0])) begin
                 data = crs.readCR(fields.regC);
             end else begin

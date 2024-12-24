@@ -14,11 +14,12 @@ interface L1ICAU;
     method ActionValue#(HitMissType) req(IMemReq c);
     method ActionValue#(L1TaggedLine) resp;
     method Action update(L1LineIndex index, LineData data, L1LineTag tag, Bool dirty);
+    method Action clearValid();
 endinterface
 
 module mkL1ICAU(L1ICAU); 
     Vector#(TExp#(7), Reg#(L1LineTag)) tagStore <- replicateM(mkReg(0));
-    Vector#(TExp#(7), Reg#(Bool)) validStore <- replicateM(mkReg(False));
+    Reg#(Vector#(TExp#(7), Bool)) validStore <- mkReg(replicate(False));
     BRAM_Configure cfg = defaultValue();
     BRAM1Port#(Bit#(7), LineData) dataStore <- mkBRAM1Server(cfg);
     BRAM1Port#(Bit#(7), Bool) dirtyStore <- mkBRAM1Server(cfg);
@@ -94,6 +95,9 @@ module mkL1ICAU(L1ICAU);
         });
     endmethod
 
+    method Action clearValid();
+        validStore <= replicate(False);
+    endmethod
 endmodule
 
 typedef struct {
@@ -108,6 +112,7 @@ interface ICache;
     method ActionValue#(IMemResp) getToProc();
     method ActionValue#(BusReq) getToMem();
     method Action putFromMem(BusResp e);
+    method Action invalidateLines();
 endinterface
 
 (* synthesize *)
@@ -122,12 +127,25 @@ module mkICache(ICache);
 
     Reg#(CacheState) state <- mkReg(WaitCAUResp);
     Reg#(Bit#(32)) cyc <- mkReg(0);
+    Reg#(Bool) doInvalidate <- mkReg(False);
+    PulseWire setInvalidate <- mkPulseWire;
+    PulseWire clearInvalidate <- mkPulseWire;
+
+    rule updateInvalidate;
+        if (setInvalidate) doInvalidate <= True;
+        else if (clearInvalidate) doInvalidate <= False;
+    endrule
+
+    rule handleInvalidate if (state == WaitCAUResp && doInvalidate);
+        cau.clearValid();
+        clearInvalidate.send();
+    endrule
 
     rule cyc_count_debug if (debug);
         cyc <= cyc + 1;
     endrule
 
-    rule handleCAUResponse if (state == WaitCAUResp);
+    rule handleCAUResponse if (state == WaitCAUResp && !doInvalidate);
         let currReq = currReqQ.first();
         let pa = parseL1IAddress(currReq.req.addr[29:2]);
         if (currReq.hit) begin 
@@ -229,6 +247,10 @@ module mkICache(ICache);
                 currReqQ.enq(HitMissCacheReq{req: e, hit: False});
             end
         endcase
+    endmethod
+
+    method Action invalidateLines() if (!doInvalidate);
+        setInvalidate.send();
     endmethod
         
     method ActionValue#(IMemResp) getToProc();

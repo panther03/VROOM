@@ -218,12 +218,12 @@ FN (FormatHandleF) HandleMcrFormat (
     IF cr == NULLPTR THEN
         cr = "?"
     END
-    IF inst & 1 THEN
-        // Move TO control register.
-        TlPrint(" %s, r%d\n", cr, rb)
-    ELSE 
+    IF XR_EXTR_FUNCT4(inst) & 1 THEN
         // Move FROM control register.
         TlPrint(" r%d, %s\n", ra, cr)
+    ELSE 
+        // Move TO control register.
+        TlPrint(" %s, r%d\n", cr, rb)
     END
 END
 

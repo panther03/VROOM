@@ -10,15 +10,22 @@ import Vector::*;
 
 Bool debug = False;
 
+typedef struct {
+    L1LineTag tag;
+    Bool valid;
+} FlushInfo deriving (Bits);
+
 interface L1CAU;
     method ActionValue#(HitMissType) req(DMemReq c);
     method ActionValue#(L1TaggedLine) resp;
+    method ActionValue#(Bool) lookup(Bit#(7) line);
     method Action update(L1LineIndex index, LineData data, L1LineTag tag, Bool dirty);
+    method Action clearValid();
 endinterface
 
 module mkL1CAU(L1CAU);
     Vector#(TExp#(7), Reg#(L1LineTag)) tagStore <- replicateM(mkReg(0));
-    Vector#(TExp#(7), Reg#(Bool)) validStore <- replicateM(mkReg(False));
+    Reg#(Vector#(TExp#(7), Bool)) validStore <- mkReg(replicate(False));
     BRAM_Configure cfg = defaultValue();
     BRAM1PortBE#(Bit#(7), LineData, 64) dataStore <- mkBRAM1ServerBE(cfg);
     BRAM1Port#(Bit#(7), Bool) dirtyStore <- mkBRAM1Server(cfg);
@@ -84,6 +91,27 @@ module mkL1CAU(L1CAU);
         end
     endmethod
 
+    method ActionValue#(Bool) lookup(Bit#(7) line);
+        let tag = tagStore[line];
+        let valid = validStore[line];
+        if (valid) begin
+            dirtyStore.portA.request.put(BRAMRequest{
+                write: False,
+                responseOnWrite: False,
+                address: line,
+                datain: ?
+            });
+            dataStore.portA.request.put(BRAMRequestBE{
+                writeen: 64'h0,
+                responseOnWrite: False,
+                address: line,
+                datain: ?
+            });
+            tagFifo.enq(tag);
+        end
+        return valid;
+    endmethod
+
     method ActionValue#(L1TaggedLine) resp;
         let isDirty <- dirtyStore.portA.response.get();
         let data <- dataStore.portA.response.get();
@@ -113,6 +141,9 @@ module mkL1CAU(L1CAU);
         });
     endmethod
 
+    method Action clearValid();
+        validStore <= replicate(False);
+    endmethod
 endmodule
 
 typedef struct {
@@ -127,6 +158,9 @@ interface Cache32;
     method ActionValue#(Word) getToProc();
     method ActionValue#(BusReq) getToMem();
     method Action putFromMem(BusResp e);
+    method Action invalidateLines();
+    method Action putFlushRequest();
+    method Action blockTillFlushDone();
 endinterface
 
 (* synthesize *)
@@ -138,15 +172,77 @@ module mkCache32(Cache32);
     FIFO#(HitMissDMemReq) currReqQ <- mkPipelineFIFO;
     FIFO#(BusReq) lineReqQ <- mkFIFO;
     FIFO#(BusResp) lineRespQ <- mkFIFO;
+    FIFO#(Bit#(7)) flushIndexQ <- mkFIFO;
 
     Reg#(CacheState) state <- mkReg(WaitCAUResp);
     Reg#(Bit#(32)) cyc <- mkReg(0);
+    
+    Reg#(Bool) doInvalidate <- mkReg(False);
+    PulseWire setInvalidate <- mkPulseWire;
+    PulseWire clearInvalidate <- mkPulseWire;
+
+    Reg#(Bool) doFlush <- mkReg(False);
+    PulseWire setFlush <- mkPulseWire;
+    PulseWire clearFlush <- mkPulseWire;
+    Reg#(Bit#(8)) flushCounter <- mkReg(0);
 
     rule cyc_count_debug if (debug);
         cyc <= cyc + 1;
     endrule
 
-    rule handleCAUResponse if (state == WaitCAUResp);
+    rule updateFlush;
+        if (setFlush) doFlush <= True;
+        else if (clearFlush) doFlush <= False;
+    endrule
+
+    rule updateInvalidate;
+        if (setInvalidate) doInvalidate <= True;
+        else if (clearInvalidate) doInvalidate <= False;
+    endrule
+
+    rule handleInvalidate if (state == WaitCAUResp && !doFlush && doInvalidate);
+        cau.clearValid();
+        clearInvalidate.send();
+    endrule
+
+    (* descending_urgency = "flushOutResponses, flushThroughCache" *)
+    rule flushOutResponses if (state == WaitCAUResp && doFlush);
+        let index = flushIndexQ.first; flushIndexQ.deq();
+        let resp <- cau.resp();
+        if (resp.isDirty) begin
+            // TODO: we should also store that it is no longer dirty in the cache, but this is just an optimization
+            lineReqQ.enq(BusReq {
+                byte_strobe: 4'hF,
+                line_en: 1,
+                addr: {resp.tag, index, 4'h0},
+                data: ?
+            });
+        end
+    endrule
+
+    // TODO really scuffed state machine logic using the counter to detect when we are done flushing through
+    // just add more states
+    rule flushThroughCache if (state == WaitCAUResp && doFlush && !(unpack(flushCounter[7]) && unpack(flushCounter[0])));
+        // finished flushing cache
+        if (unpack(flushCounter[7])) begin
+            // send a read request to an arbitrary address, say 0 so we get something back from the bus
+            // once we know it's seen everything else we wrote
+            lineReqQ.enq(BusReq {
+                byte_strobe: 4'h0,
+                line_en: 1,
+                addr: 0,
+                data: ?
+            });
+        end else begin
+            let valid <- cau.lookup(flushCounter[6:0]);
+            if (valid) begin 
+                flushIndexQ.enq(flushCounter[6:0]);
+            end 
+        end
+        flushCounter <= flushCounter + 1;
+    endrule
+
+    rule handleCAUResponse if (state == WaitCAUResp && !doFlush && !doInvalidate);
         let currReq = currReqQ.first();
         let pa = parseL1Address(currReq.req.addr);
         if (currReq.hit) begin 
@@ -246,7 +342,7 @@ module mkCache32(Cache32);
         state <= WaitCAUResp;
     endrule
 
-    method Action putFromProc(DMemReq e);
+    method Action putFromProc(DMemReq e) if (!doFlush);
         let hitMissResult <- cau.req(e);
         let pa = parseL1Address(e.addr);
         case (hitMissResult)
@@ -267,6 +363,20 @@ module mkCache32(Cache32);
                 currReqQ.enq(HitMissDMemReq{req: e, hit: False});
             end
         endcase
+    endmethod
+
+    method Action invalidateLines();
+        setInvalidate.send();
+    endmethod
+
+    method Action putFlushRequest();
+        setFlush.send();
+    endmethod
+
+    method Action blockTillFlushDone() if (state == WaitCAUResp && doFlush && (unpack(flushCounter[7]) && unpack(flushCounter[0])));
+        lineRespQ.deq();
+        flushCounter <= 0;
+        clearFlush.send();
     endmethod
         
     method ActionValue#(Word) getToProc();

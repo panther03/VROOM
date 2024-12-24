@@ -135,6 +135,7 @@ typedef struct {
     Maybe#(Bit#(5)) rd;
     Bool serial;
     Bool priv;
+    Bool barrier;
     Bit#(32) inst;
     FunctUnit fu;
 } DecodedInst deriving (Eq, FShow, Bits);
@@ -175,6 +176,11 @@ function FunctUnit getFU(InstFields fields);
     op3l_IMM_GRP000: Control;
     op3l_REG: case (fields.op3u)
         op3u_REG_111: unpack(fields.funct4[3] & |fields.funct4[2:0]) ? LoadStore : ALU;
+        op3u_REG_110: case (fields.funct4)
+            fn4_MB: LoadStore;
+            fn4_WMB: LoadStore;
+            default: ALU;
+        endcase
         op3u_REG_101: case (fields.funct4)
             fn4_HLT: Control;
             fn4_RFE: Control;
@@ -214,7 +220,7 @@ function Maybe#(Bit#(5)) getRS1(InstFields fields);
         op3l_REG: case (fields.op3u) 
             op3u_REG_111: tagged Valid(fields.regB);
             op3u_REG_101: case (fields.funct4)
-                fn4_MTCR: tagged Valid(fields.regA);
+                fn4_MTCR: tagged Valid(fields.regB);
                 default: tagged Invalid;
             endcase
             default: tagged Invalid;
@@ -266,6 +272,19 @@ function Bool isSerialInst(InstFields fields);
     endcase;
 endfunction
 
+function Bool isBarrier(InstFields fields);
+    return case (fields.op3l)
+        op3l_REG: case (fields.op3u)
+            op3u_REG_110: case (fields.funct4)
+                fn4_WMB, fn4_MB: True;
+                default: False;
+            endcase
+            default: False;
+        endcase
+        default: False;
+    endcase;
+endfunction
+
 function DecodedInst decodeInst(Bit#(32) inst);
     let fields = getInstFields(inst);
     return DecodedInst {
@@ -276,6 +295,7 @@ function DecodedInst decodeInst(Bit#(32) inst);
         rd: getRD(fields),
         priv: ((fields.op3l == op3l_REG) && (fields.op3u == op3u_REG_101)),
         serial: isSerialInst(fields),
+        barrier: isBarrier(fields),
         fu: getFU(fields),
         inst: inst
     };

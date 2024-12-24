@@ -90,6 +90,7 @@ module mkCommit #(
             // handling write to control registers (MTCR)
             // needs to be done here instead of in execute to preserve precise state
             // otherwise need to also flush the pipleine *before* mtcr
+            $display("yeap %08x", ru.data);
             if (commitOk) crs.writeCR(fields.regC, ru.data); 
         end else if (isStore) begin
             if (commitOk) mu.commitStore();
@@ -109,9 +110,11 @@ module mkCommit #(
             konataHelper.squashInst(e2wResult.kid);
         end
 
+        // Remove the block on decode here if we are committing the serial instruction.
+        if (e2wResult.di.serial) fsm.trs_RestartDecode();
+
         if (commitOk) begin
             redirectArchState(nextArchState);
-            if (e2wResult.di.serial) fsm.trs_RestartDecode();
             konataHelper.stageInst(e2wResult.kid, "C");
             konataHelper.commitInst(e2wResult.kid);
             if (isValid(e2wResult.di.rd)) begin

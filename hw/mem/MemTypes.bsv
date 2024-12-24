@@ -78,6 +78,8 @@ function L1IParsedAddress parseL1IAddress(Bit#(28) address);
     };
 endfunction
 
+Bit#(32) cacheCtrlWord = {8'd0, 8'd9, 8'd1, 8'd7};
+
 // L2 no longer in use
 
 ///////////////
@@ -104,3 +106,4 @@ endfunction
 //        index: address[7:0]
 //    };
 //endfunction
+
