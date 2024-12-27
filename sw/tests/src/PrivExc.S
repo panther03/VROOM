@@ -3,12 +3,13 @@
 .extern SimExit
 
 ExcHandler:
-    jal SimExit
+    jalr zero, t3, 0
 
 TestMain:
 .global TestMain
     // we load the argument for a0 very early
     li a0, 0
+    la t3, SimExit
     la t1, ExcHandler
     // load the instruction
     mov t2, long [t1]

@@ -124,7 +124,8 @@ module mkSim(Empty);
                 $finish;
             end 
             mem.put(req);
-            respTracker.enq(DRAM);
+            if (req.byte_strobe == 4'h0)
+                respTracker.enq(DRAM);
         end else begin
             // go to BOOTROM
             if (req.addr[29:14] == 16'hFFFE) begin

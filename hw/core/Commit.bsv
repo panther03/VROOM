@@ -90,7 +90,6 @@ module mkCommit #(
             // handling write to control registers (MTCR)
             // needs to be done here instead of in execute to preserve precise state
             // otherwise need to also flush the pipleine *before* mtcr
-            $display("yeap %08x", ru.data);
             if (commitOk) crs.writeCR(fields.regC, ru.data); 
         end else if (isStore) begin
             if (commitOk) mu.commitStore();

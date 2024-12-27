@@ -183,6 +183,10 @@ module mkMemUnit#(
     rule waitOnBarrier if (fsm.runOk() && barrier);
         blockTillFlushDone();
         clearBarrier.send();
+        results.enq(ExcResult {
+            data: ?,
+            ecause: tagged Invalid
+        });
     endrule
 
     // Bluespec is being weird with the stalling logic here. Inlining handleRequest here should not make a difference,

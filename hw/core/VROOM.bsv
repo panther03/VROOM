@@ -52,6 +52,9 @@ module mkVROOM (VROOMIfc);
     ICache iCache <- mkICache;
     Cache32 dCache <- mkCache32;
 
+    // crappy hack
+    Reg#(Bool) globalFlushStall <- mkReg(False);
+
     ///////////////////////
     // Global CPU state //
     /////////////////////
@@ -137,6 +140,20 @@ module mkVROOM (VROOMIfc);
     ///////////////////////////////
     // Memory/Cache Interfacing //
     /////////////////////////////
+
+    function Action startDCacheFlush();
+    action
+        dCache.putFlushRequest();
+        globalFlushStall <= True;
+    endaction
+    endfunction 
+
+    function Action finishDCacheFlush();
+    action
+        dCache.blockTillFlushDone();
+        globalFlushStall <= False;
+    endaction
+    endfunction
 
     // Interface seen by CPU
     // TODO: these should probably be their own rules.
@@ -236,7 +253,7 @@ module mkVROOM (VROOMIfc);
     endrule
 
     (* descending_urgency = "handleICacheRequest, handleDCacheRequest" *)
-    rule handleICacheRequest;
+    rule handleICacheRequest if (!globalFlushStall);
         let cacheReq <- iCache.getToMem();
         busTracker.enq(BusBusiness {
             origin: L1I,
@@ -264,7 +281,8 @@ module mkVROOM (VROOMIfc);
         fsm,
         konataHelper,
         f2d,
-        putIMemReq
+        putIMemReq,
+        globalFlushStall
     );
     alu <- mkAlu(
         crs
@@ -279,8 +297,8 @@ module mkVROOM (VROOMIfc);
         konataHelper,
         putDMemReq,
         getDMemResp,
-        dCache.putFlushRequest,
-        dCache.blockTillFlushDone
+        startDCacheFlush,
+        finishDCacheFlush
     );
     decode <- mkDecode(
         fsm,

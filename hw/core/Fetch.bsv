@@ -14,13 +14,14 @@ module mkFetch #(
     VROOMFsm fsm,
     KonataIntf konataHelper,
     FIFO#(F2D) f2d,
-    function Action putIMemReq(IMemReq r)
+    function Action putIMemReq(IMemReq r),
+    Reg#(Bool) globalFlushStall
 )(FetchIntf);
     Ehr#(2, Bit#(32)) pc <- mkEhr(32'hFFFE1000);
     Ehr#(2, Epoch) epoch <- mkEhr(2'h0);
     Reg#(Bit#(28)) lastImemAddr <- mkReg(28'h0);
         
-    rule fetch if (fsm.runOk());
+    rule fetch if (fsm.runOk() && !globalFlushStall);
         Bit#(32) pc_next = pc[0] + 4;
 
         pc[0] <= pc_next;

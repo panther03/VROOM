@@ -7,6 +7,7 @@ import SpecialFIFOs::*;
 import MemTypes::*;
 import Ehr::*;
 import Vector::*;
+import SrReg::*;
 
 Bool debug = False;
 
@@ -177,52 +178,39 @@ module mkCache32(Cache32);
     Reg#(CacheState) state <- mkReg(WaitCAUResp);
     Reg#(Bit#(32)) cyc <- mkReg(0);
     
-    Reg#(Bool) doInvalidate <- mkReg(False);
-    PulseWire setInvalidate <- mkPulseWire;
-    PulseWire clearInvalidate <- mkPulseWire;
-
-    Reg#(Bool) doFlush <- mkReg(False);
-    PulseWire setFlush <- mkPulseWire;
-    PulseWire clearFlush <- mkPulseWire;
+    SrReg doInvalidate <- mkSrReg(True);
+    SrReg doFlush <- mkSrReg(True);
+    
     Reg#(Bit#(8)) flushCounter <- mkReg(0);
 
     rule cyc_count_debug if (debug);
         cyc <= cyc + 1;
     endrule
 
-    rule updateFlush;
-        if (setFlush) doFlush <= True;
-        else if (clearFlush) doFlush <= False;
-    endrule
-
-    rule updateInvalidate;
-        if (setInvalidate) doInvalidate <= True;
-        else if (clearInvalidate) doInvalidate <= False;
-    endrule
-
-    rule handleInvalidate if (state == WaitCAUResp && !doFlush && doInvalidate);
+    rule handleInvalidate if (state == WaitCAUResp && !doFlush.read() && doInvalidate.read());
         cau.clearValid();
-        clearInvalidate.send();
+        doInvalidate.reset();
     endrule
 
     (* descending_urgency = "flushOutResponses, flushThroughCache" *)
-    rule flushOutResponses if (state == WaitCAUResp && doFlush);
+    rule flushOutResponses if (state == WaitCAUResp && doFlush.read());
         let index = flushIndexQ.first; flushIndexQ.deq();
         let resp <- cau.resp();
         if (resp.isDirty) begin
             // TODO: we should also store that it is no longer dirty in the cache, but this is just an optimization
+            if (debug) $display("Dirty line: %08x", {resp.tag, index, 6'h0});
             lineReqQ.enq(BusReq {
                 byte_strobe: 4'hF,
                 line_en: 1,
                 addr: {resp.tag, index, 4'h0},
-                data: ?
+                data: resp.data
             });
         end
     endrule
 
     // TODO really scuffed state machine logic using the counter to detect when we are done flushing through
     // just add more states
-    rule flushThroughCache if (state == WaitCAUResp && doFlush && !(unpack(flushCounter[7]) && unpack(flushCounter[0])));
+    rule flushThroughCache if (state == WaitCAUResp && doFlush.read() && !(unpack(flushCounter[7]) && unpack(flushCounter[0])));
         // finished flushing cache
         if (unpack(flushCounter[7])) begin
             // send a read request to an arbitrary address, say 0 so we get something back from the bus
@@ -236,13 +224,14 @@ module mkCache32(Cache32);
         end else begin
             let valid <- cau.lookup(flushCounter[6:0]);
             if (valid) begin 
+                if (debug) $display("Flush %02x", flushCounter[7:0]);
                 flushIndexQ.enq(flushCounter[6:0]);
             end 
         end
         flushCounter <= flushCounter + 1;
     endrule
 
-    rule handleCAUResponse if (state == WaitCAUResp && !doFlush && !doInvalidate);
+    rule handleCAUResponse if (state == WaitCAUResp && !doFlush.read() && !doInvalidate.read());
         let currReq = currReqQ.first();
         let pa = parseL1Address(currReq.req.addr);
         if (currReq.hit) begin 
@@ -342,7 +331,7 @@ module mkCache32(Cache32);
         state <= WaitCAUResp;
     endrule
 
-    method Action putFromProc(DMemReq e) if (!doFlush);
+    method Action putFromProc(DMemReq e) if (!doFlush.read());
         let hitMissResult <- cau.req(e);
         let pa = parseL1Address(e.addr);
         case (hitMissResult)
@@ -366,17 +355,17 @@ module mkCache32(Cache32);
     endmethod
 
     method Action invalidateLines();
-        setInvalidate.send();
+        doInvalidate.set();
     endmethod
 
     method Action putFlushRequest();
-        setFlush.send();
+        doFlush.set();
     endmethod
 
-    method Action blockTillFlushDone() if (state == WaitCAUResp && doFlush && (unpack(flushCounter[7]) && unpack(flushCounter[0])));
+    method Action blockTillFlushDone() if (state == WaitCAUResp && doFlush.read() && (unpack(flushCounter[7]) && unpack(flushCounter[0])));
         lineRespQ.deq();
         flushCounter <= 0;
-        clearFlush.send();
+        doFlush.reset();
     endmethod
         
     method ActionValue#(Word) getToProc();
