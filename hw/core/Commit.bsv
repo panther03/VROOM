@@ -110,7 +110,8 @@ module mkCommit #(
         end
 
         // Remove the block on decode here if we are committing the serial instruction.
-        if (e2wResult.di.serial) fsm.trs_RestartDecode();
+        // We don't do this on Halt however because we want to wait for the next interrupt to come in.
+        if (e2wResult.di.serial && fields.funct4 != fn4_HLT) fsm.trs_RestartDecode();
 
         if (commitOk) begin
             redirectArchState(nextArchState);

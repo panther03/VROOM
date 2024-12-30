@@ -2,6 +2,7 @@ import FIFO::*;
 import VROOMTypes::*;
 import VROOMFsm::*;
 import XRUtil::*;
+import ControlRegs::*;
 
 typedef struct {
     Bit#(32) rv1;
@@ -23,12 +24,13 @@ function Bool canSpeculateMoreBranches(Epoch speculated, Epoch committed);
 endfunction
 
 module mkBranchUnit#(
+    ControlRegs crs,
     function Action redirect(ControlRedirection r),
     function Epoch frontendEpoch(),
     function Epoch backendEpoch()
 )(BranchUnit);
     FIFO#(ExcResult) results <- mkFIFO;
-    FIFO#(Maybe#(ControlRedirection)) crs <- mkFIFO;
+    FIFO#(Maybe#(ControlRedirection)) redirs <- mkFIFO;
 
     method Action enq(BranchRequest b) if (canSpeculateMoreBranches(frontendEpoch(), backendEpoch()));
         // Note: This method NEEDS to work like this
@@ -84,13 +86,20 @@ module mkBranchUnit#(
                     epoch: n_epoch
                 } : tagged Invalid;
             end
-            // HLT & RFE TODO
+            // assume we are RFE
+            op3l_REG: begin
+                crs.popModeBits();
+                r = tagged Valid ControlRedirection {
+                    pc: crs.readCR(crs.getCurrMode().t ? pack(TBPC) : pack(EPC)),
+                    epoch: n_epoch
+                };
+            end
         endcase
 
         if (isValid(r)) begin
             redirect(fromMaybe(?, r));
         end
-        crs.enq(r);
+        redirs.enq(r);
         results.enq(ExcResult {
             data: result,
             ecause: tagged Invalid
@@ -103,6 +112,6 @@ module mkBranchUnit#(
     endmethod
 
     method ActionValue#(Maybe#(ControlRedirection)) getCR();
-        crs.deq(); return crs.first();
+        redirs.deq(); return redirs.first();
     endmethod
 endmodule

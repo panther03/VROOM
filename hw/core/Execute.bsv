@@ -78,6 +78,18 @@ module mkExecute #(
                     pc: d2eResult.fi.pc
                 });
             end
+            MulDivUnit: begin
+                konataHelper.stageInst(d2eResult.kid, "Xdm");
+                let fields = getInstFields(d2eResult.di.inst);
+                /*mdu.enq(MulDivRequest {
+                    rv1: d2eResult.ops.rv1,
+                    rv2: d2eResult.ops.rv2,
+                    op: case (fields.funct4) 
+                })*/
+            end
+            default: begin
+                // do nothing
+            end
         endcase
         
         e2w.enq(E2W {

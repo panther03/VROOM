@@ -121,7 +121,9 @@ Bit#(4) ecause_DTB = 4'd15;
 typedef enum {
     LoadStore,
     Control,
-    ALU
+    ALU,
+    Nop,
+    MulDiv
 } FunctUnit deriving (Eq, FShow, Bits);
 
 // rs1, rs2, rs3 and rd are used instead of RA, RB, and RC,
@@ -182,7 +184,7 @@ function FunctUnit getFU(InstFields fields);
             default: ALU;
         endcase
         op3u_REG_101: case (fields.funct4)
-            fn4_HLT: Control;
+            fn4_HLT: Nop;
             fn4_RFE: Control;
             default: ALU;
         endcase
@@ -263,7 +265,7 @@ function Bool isSerialInst(InstFields fields);
     return case (fields.op3l)
         op3l_REG: case (fields.op3u)
             op3u_REG_101: case (fields.funct4)
-                fn4_MTCR, fn4_RFE: True;
+                fn4_MTCR, fn4_RFE, fn4_HLT: True;
                 default: False;
             endcase
             default: False;
