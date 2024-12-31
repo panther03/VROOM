@@ -4,6 +4,7 @@ import VROOMFsm::*;
 import KonataHelper::*;
 import FIFO::*;
 import Ehr::*;
+import SrReg::*;
 
 interface FetchIntf;
     method Action redirect(ControlRedirection r);
@@ -15,13 +16,13 @@ module mkFetch #(
     KonataIntf konataHelper,
     FIFO#(F2D) f2d,
     function Action putIMemReq(IMemReq r),
-    Reg#(Bool) globalFlushStall
+    SrReg globalFlushStall
 )(FetchIntf);
     Ehr#(2, Bit#(32)) pc <- mkEhr(32'hFFFE1000);
     Ehr#(2, Epoch) epoch <- mkEhr(2'h0);
     Reg#(Bit#(28)) lastImemAddr <- mkReg(28'h0);
         
-    rule fetch if (fsm.runOk() && !globalFlushStall);
+    rule fetch if (fsm.runOk() && !globalFlushStall.read());
         Bit#(32) pc_next = pc[0] + 4;
 
         pc[0] <= pc_next;

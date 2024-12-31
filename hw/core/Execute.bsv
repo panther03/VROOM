@@ -12,6 +12,7 @@ import KonataHelper::*;
 import MemUnit::*;
 import BranchUnit::*;
 import Alu::*;
+import MulDivUnit::*;
 
 interface ExecuteIntf;
 endinterface
@@ -25,6 +26,7 @@ module mkExecute #(
     MemUnit mu,
     BranchUnit bu,
     Alu alu,
+    MulDivUnit mdu,
     ControlRegs crs
 )(ExecuteIntf);
 
@@ -78,14 +80,19 @@ module mkExecute #(
                     pc: d2eResult.fi.pc
                 });
             end
-            MulDivUnit: begin
+            MulDiv: begin
                 konataHelper.stageInst(d2eResult.kid, "Xdm");
                 let fields = getInstFields(d2eResult.di.inst);
-                /*mdu.enq(MulDivRequest {
+                mdu.enq(MulDivRequest {
                     rv1: d2eResult.ops.rv1,
                     rv2: d2eResult.ops.rv2,
                     op: case (fields.funct4) 
-                })*/
+                        fn4_DIV, fn4_DIVS: Div;
+                        fn4_MOD: Mod;
+                        fn4_MUL: Mul;
+                    endcase,
+                    isSigned: fields.funct4 == fn4_MOD
+                });
             end
             default: begin
                 // do nothing

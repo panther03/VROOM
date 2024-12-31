@@ -1,6 +1,7 @@
 import VROOMTypes::*;
 import StmtFSM::*;
 import FIFO::*;
+import ConfigReg::*;
 
 typedef enum {
     Mul,
@@ -11,6 +12,7 @@ typedef enum {
 typedef struct {
     Bit#(32) rv1;
     Bit#(32) rv2;
+    Bool isSigned;
     MulDivOp op;
 } MulDivRequest deriving (Bits);
 
@@ -20,12 +22,15 @@ interface MulDivUnit;
 endinterface
 
 module mkMulDivUnit(MulDivUnit);
+    FIFO#(MulDivRequest) reqs <- mkFIFO;
     Reg#(Bit#(32)) rv1 <- mkReg(32'h0);
     Reg#(Bit#(32)) rv2 <- mkReg(32'h0);
     Reg#(Bit#(32)) res <- mkReg(32'h0);
     Reg#(MulDivOp) op <- mkReg(?);
-    FIFO#(ExcResult) results <- mkFIFO();
+    FIFO#(ExcResult) results <- mkFIFO;
     Reg#(Bit#(32)) b <- mkReg(32'h0);
+    Reg#(Bit#(1)) sign <- mkReg(1'b0);
+    Reg#(Bool) running <- mkReg(False); // no idea why i need this
 
     Stmt s = seq
         if (op == Mul) seq
@@ -59,17 +64,34 @@ module mkMulDivUnit(MulDivUnit);
                 rv2 <= rv2 >> 1;
             endseq
             results.enq(ExcResult {
-                data: (op == Mod) ? rv1 : res,
+                data: (op == Mod) ? rv1 : (unpack(sign) ? -res : res),
                 ecause: tagged Invalid 
             });
+            running <= False;
         endseq
     endseq;
-    FSM fsm <- mkFSM(s);
+    FSM fsm <- mkFSMWithPred(s, running);
 
-    method Action enq(MulDivRequest a);
+    rule handleReq if (!running);
+        let a = reqs.first; reqs.deq();
+        running <= True;
         res <= 0;
         b <= 32'h1;
+        op <= a.op;
+        if (a.isSigned) begin
+            rv1 <= unpack(a.rv1[31]) ? (-a.rv1) : a.rv1;
+            rv2 <= unpack(a.rv2[31]) ? (-a.rv2) : a.rv2;
+            sign <= a.rv1[31] ^ a.rv2[31];
+        end else begin
+            rv1 <= a.rv1;
+            rv2 <= a.rv2;
+            sign <= 0;
+        end
         fsm.start();
+    endrule
+
+    method Action enq(MulDivRequest a);
+        reqs.enq(a);
     endmethod
 
     method ActionValue#(ExcResult) deq();

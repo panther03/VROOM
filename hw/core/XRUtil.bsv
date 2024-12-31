@@ -96,6 +96,8 @@ Bit#(4) fn4_LL          = 4'b1001;
 Bit#(4) fn4_SC          = 4'b1000;
 Bit#(4) fn4_MB          = 4'b0011;
 Bit#(4) fn4_WMB         = 4'b0010;
+Bit#(4) fn4_BRK         = 4'b0001;
+Bit#(4) fn4_SYS         = 4'b0000;
 
 Bit#(3) op3u_REG_101    = 3'b101;
 Bit#(4) fn4_MFCR        = 4'b1111;
@@ -160,6 +162,8 @@ function Bool isLegal(InstFields fields);
         op3u_REG_111: True;
         op3u_REG_110: case (fields.funct4)
             fn4_MB, fn4_WMB: True;
+            fn4_MUL, fn4_DIV, fn4_DIVS, fn4_MOD: True;
+            fn4_BRK, fn4_SYS: True;
         endcase
         op3u_REG_101: case (fields.funct4)
             fn4_MFCR, fn4_MTCR, fn4_HLT, fn4_RFE: True;
@@ -179,8 +183,9 @@ function FunctUnit getFU(InstFields fields);
     op3l_REG: case (fields.op3u)
         op3u_REG_111: unpack(fields.funct4[3] & |fields.funct4[2:0]) ? LoadStore : ALU;
         op3u_REG_110: case (fields.funct4)
-            fn4_MB: LoadStore;
-            fn4_WMB: LoadStore;
+            fn4_MUL, fn4_MOD, fn4_DIV, fn4_DIVS: MulDiv;
+            fn4_BRK, fn4_SYS: Nop;
+            fn4_MB, fn4_WMB: LoadStore;
             default: ALU;
         endcase
         op3u_REG_101: case (fields.funct4)
@@ -201,6 +206,10 @@ function Maybe#(Bit#(5)) getRD(InstFields fields);
         op3l_REG: case (fields.op3u)
             op3u_REG_111: 
                 unpack(fields.funct4[3] & ~fields.funct4[2] & |fields.funct4[1:0]) ? tagged Invalid : tagged Valid(fields.regA);
+            op3u_REG_110: case (fields.funct4)
+                fn4_MUL,fn4_MOD,fn4_DIV,fn4_DIVS: tagged Valid(fields.regA);
+                default: tagged Invalid;
+            endcase
             op3u_REG_101: case (fields.funct4)
                 fn4_MFCR: tagged Valid(fields.regA);
                 default: tagged Invalid;
@@ -221,6 +230,10 @@ function Maybe#(Bit#(5)) getRS1(InstFields fields);
         op3l_IMM_GRP000: tagged Valid(fields.regB);
         op3l_REG: case (fields.op3u) 
             op3u_REG_111: tagged Valid(fields.regB);
+            op3u_REG_110: case (fields.funct4)
+                fn4_MUL,fn4_MOD,fn4_DIV,fn4_DIVS: tagged Valid(fields.regB);
+                default: tagged Invalid;
+            endcase
             op3u_REG_101: case (fields.funct4)
                 fn4_MTCR: tagged Valid(fields.regB);
                 default: tagged Invalid;
@@ -237,6 +250,10 @@ function Maybe#(Bit#(5)) getRS2(InstFields fields);
     return case (fields.op3l)
         op3l_REG: case (fields.op3u)
             op3u_REG_111: tagged Valid(fields.regC);
+            op3u_REG_110: case (fields.funct4)
+                fn4_MUL,fn4_MOD,fn4_DIV,fn4_DIVS: tagged Valid(fields.regC);
+                default: tagged Invalid;
+            endcase
             default: tagged Invalid;
         endcase
         default: tagged Invalid;

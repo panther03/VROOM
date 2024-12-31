@@ -24,6 +24,8 @@ import Alu::*;
 import BranchUnit::*;
 import Exceptions::*;
 import MemUnit::*;
+import MulDivUnit::*;
+import SrReg::*;
 
 import Cache32::*;
 import ICache::*;
@@ -53,7 +55,7 @@ module mkVROOM (VROOMIfc);
     Cache32 dCache <- mkCache32;
 
     // crappy hack
-    Reg#(Bool) globalFlushStall <- mkReg(False);
+    SrReg globalFlushStall <- mkSrReg(True);
 
     ///////////////////////
     // Global CPU state //
@@ -81,6 +83,7 @@ module mkVROOM (VROOMIfc);
     Alu alu;
     BranchUnit bu;
     MemUnit mu;
+    MulDivUnit mdu;
 
 
     //////////////////
@@ -144,14 +147,14 @@ module mkVROOM (VROOMIfc);
     function Action startDCacheFlush();
     action
         dCache.putFlushRequest();
-        globalFlushStall <= True;
+        globalFlushStall.set();
     endaction
     endfunction 
 
     function Action finishDCacheFlush();
     action
         dCache.blockTillFlushDone();
-        globalFlushStall <= False;
+        globalFlushStall.reset();
     endaction
     endfunction
 
@@ -253,7 +256,7 @@ module mkVROOM (VROOMIfc);
     endrule
 
     (* descending_urgency = "handleICacheRequest, handleDCacheRequest" *)
-    rule handleICacheRequest if (!globalFlushStall);
+    rule handleICacheRequest if (!globalFlushStall.read());
         let cacheReq <- iCache.getToMem();
         busTracker.enq(BusBusiness {
             origin: L1I,
@@ -288,6 +291,7 @@ module mkVROOM (VROOMIfc);
         crs
     );
     bu <- mkBranchUnit(
+        crs,
         fetch.redirect,
         fetch.currentEpoch,
         archEpoch
@@ -300,6 +304,7 @@ module mkVROOM (VROOMIfc);
         startDCacheFlush,
         finishDCacheFlush
     );
+    mdu <- mkMulDivUnit();
     decode <- mkDecode(
         fsm,
         konataHelper,
@@ -317,6 +322,7 @@ module mkVROOM (VROOMIfc);
         mu,
         bu,
         alu,
+        mdu,
         crs
     );
     exceptions <- mkExceptions(
@@ -340,6 +346,7 @@ module mkVROOM (VROOMIfc);
         mu,
         bu,
         alu,
+        mdu,
         crs
     );
    

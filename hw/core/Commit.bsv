@@ -9,6 +9,7 @@ import KonataHelper::*;
 import MemUnit::*;
 import BranchUnit::*;
 import Alu::*;
+import MulDivUnit::*;
 import ControlRegs::*;
 
 interface CommitIntf;
@@ -26,6 +27,7 @@ module mkCommit #(
     MemUnit mu,
     BranchUnit bu,
     Alu alu,
+    MulDivUnit mdu,
     ControlRegs crs
 )(CommitIntf);
 
@@ -46,6 +48,7 @@ module mkCommit #(
                 LoadStore: ru <- mu.deq();
                 Control: begin ru <- bu.deq(); cr <- bu.getCR(); end
                 ALU: ru <- alu.deq();
+                MulDiv: ru <- mdu.deq();
             endcase
         end
 
@@ -86,11 +89,11 @@ module mkCommit #(
                 writeRf(rd, ru.data);
             end
             freeRegister(rd);
-        end else if (e2wResult.di.priv && fields.funct4 == fn4_MTCR) begin
-            // handling write to control registers (MTCR)
+        end else if (e2wResult.di.priv && fields.funct4 == fn4_MTCR || fields.funct4 == fn4_RFE) begin
+            // handling write to control registers (MTCR, RFE)
             // needs to be done here instead of in execute to preserve precise state
             // otherwise need to also flush the pipleine *before* mtcr
-            if (commitOk) crs.writeCR(fields.regC, ru.data); 
+            if (commitOk) crs.writeCR((fields.funct4 == fn4_MTCR) ? fields.regC : pack(RS), ru.data); 
         end else if (isStore) begin
             if (commitOk) mu.commitStore();
         end

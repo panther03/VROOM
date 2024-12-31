@@ -88,7 +88,7 @@ module mkBranchUnit#(
             end
             // assume we are RFE
             op3l_REG: begin
-                crs.popModeBits();
+                result = crs.calcPopModeBits();
                 r = tagged Valid ControlRedirection {
                     pc: crs.readCR(crs.getCurrMode().t ? pack(TBPC) : pack(EPC)),
                     epoch: n_epoch

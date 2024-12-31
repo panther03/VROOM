@@ -52,7 +52,7 @@ interface ControlRegs;
     method ModeByte getCurrMode();
     method Action setEpc(Bit#(32) pc);
     method Action updateRsForExc(Bit#(4) ecause);
-    method Action popModeBits();
+    method Bit#(32) calcPopModeBits();
 endinterface
 
 module mkCRS #(
@@ -110,11 +110,11 @@ module mkCRS #(
         crf[pack(RS)][1] <= pack(newRs);
     endmethod
 
-    method Action popModeBits();
+    method Bit#(32) calcPopModeBits();
         RS newRs = unpack(crf[pack(RS)][0]);
         newRs.curr = newRs.old;
         newRs.old = newRs.oldold;
         newRs.oldold = unpack(8'h0);
-        crf[pack(RS)][1] <= pack(newRs);
+        return pack(newRs);
     endmethod
 endmodule
