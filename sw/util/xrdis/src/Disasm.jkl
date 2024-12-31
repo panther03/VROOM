@@ -100,7 +100,7 @@ FN (FormatHandleF) HandleLoadStoreImmFormat (
 )
     opsize := MemOpsSizeTable[(inst >> 3) & 0x3]
     IF opsize == NULLPTR THEN
-        TlPrint("INVALID")
+        TlPrint("INVALID\n")
         LEAVE
     ELSE 
         TlPrint("MOV ")
@@ -134,9 +134,9 @@ FN (FormatHandleF) HandleLoadStoreRegFormat (
     IN size : UWORD,
     IN labels : ^ULONG
 )
-    opsize := MemOpsSizeTable[(inst >> 3) & 0x3]
+    opsize := MemOpsSizeTable[XR_EXTR_FUNCT4(inst) & 0x3]
     IF opsize == NULLPTR THEN
-        TlPrint(" INVALID")
+        TlPrint(" INVALID\n")
         LEAVE
     END
 

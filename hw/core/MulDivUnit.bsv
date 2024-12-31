@@ -67,8 +67,8 @@ module mkMulDivUnit(MulDivUnit);
                 data: (op == Mod) ? rv1 : (unpack(sign) ? -res : res),
                 ecause: tagged Invalid 
             });
-            running <= False;
         endseq
+        running <= False;
     endseq;
     FSM fsm <- mkFSMWithPred(s, running);
 

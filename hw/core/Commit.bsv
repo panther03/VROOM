@@ -115,9 +115,12 @@ module mkCommit #(
         // Remove the block on decode here if we are committing the serial instruction.
         // We don't do this on Halt however because we want to wait for the next interrupt to come in.
         if (e2wResult.di.serial && fields.funct4 != fn4_HLT) fsm.trs_RestartDecode();
+        
+        // instructions with the force exception skip bit (brk,sys) will commit the next pc
+        // even though they generate an exception because we do not want to resume to the same instruction
+        if (commitOk || e2wResult.di.forceExceptionSkip) redirectArchState(nextArchState);
 
         if (commitOk) begin
-            redirectArchState(nextArchState);
             konataHelper.stageInst(e2wResult.kid, "C");
             konataHelper.commitInst(e2wResult.kid);
             if (isValid(e2wResult.di.rd)) begin

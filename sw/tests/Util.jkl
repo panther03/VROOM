@@ -3,6 +3,8 @@
 PrintAddr : ^UBYTE = CAST 0xE000FFF0 TO ^UBYTE
 ExitAddr : ^UWORD = CAST 0xE000FFF8 TO ^UWORD
 
+HexLut : UBYTE[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'}
+
 EXTERN FN TestMain () : UWORD
 EXTERN _data : UBYTE
 EXTERN _data_size : UBYTE
@@ -30,6 +32,15 @@ FN SimPutc (
     adj^^ = char
 END
 
+FN SimPuts (
+    IN str : ^UBYTE
+)
+    WHILE str^ != 0 DO
+        PrintAddr^ = str^
+        str += 1
+    END
+END
+
 FN PrintNum(
     IN x: UWORD
 )
@@ -40,11 +51,30 @@ FN PrintNum(
     SimPutc(0xA)
 END
 
+FN PrintNumFull(
+    IN x: UWORD
+)
+    i := 1
+    WHILE (i < 9) DO
+        SimPutc((HexLut[0xF & (x >> (32 - (i << 2)))]))
+        i += 1
+    END
+    SimPutc('\n')
+END
+
 FN SimExit ( 
     IN code : UWORD
 )
     adj := CAST &ExitAddr  TO ^^UWORD
     adj^^ = code
+END
+
+FN ExceptionCrash (
+    IN ecause: UWORD
+)
+    SimPuts("ECAUSE=")
+    PrintNum(ecause)
+    SimExit(1)
 END
 
 FN SoftMul(

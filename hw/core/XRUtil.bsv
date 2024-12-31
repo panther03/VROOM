@@ -140,6 +140,7 @@ typedef struct {
     Bool serial;
     Bool priv;
     Bool barrier;
+    Bool forceExceptionSkip;
     Bit#(32) inst;
     FunctUnit fu;
 } DecodedInst deriving (Eq, FShow, Bits);
@@ -164,10 +165,13 @@ function Bool isLegal(InstFields fields);
             fn4_MB, fn4_WMB: True;
             fn4_MUL, fn4_DIV, fn4_DIVS, fn4_MOD: True;
             fn4_BRK, fn4_SYS: True;
+            default: False;
         endcase
         op3u_REG_101: case (fields.funct4)
             fn4_MFCR, fn4_MTCR, fn4_HLT, fn4_RFE: True;
+            default: False;
         endcase
+        default: False;
     endcase
     default: False;
     endcase;
@@ -184,7 +188,7 @@ function FunctUnit getFU(InstFields fields);
         op3u_REG_111: unpack(fields.funct4[3] & |fields.funct4[2:0]) ? LoadStore : ALU;
         op3u_REG_110: case (fields.funct4)
             fn4_MUL, fn4_MOD, fn4_DIV, fn4_DIVS: MulDiv;
-            fn4_BRK, fn4_SYS: Nop;
+            fn4_BRK, fn4_SYS: ALU;
             fn4_MB, fn4_WMB: LoadStore;
             default: ALU;
         endcase
@@ -304,6 +308,20 @@ function Bool isBarrier(InstFields fields);
     endcase;
 endfunction
 
+// not a big fan of this solution but it works i guess
+function Bool isForceExceptionSkip(InstFields fields);
+    return case (fields.op3l)
+        op3l_REG: case (fields.op3u)
+            op3u_REG_110: case (fields.funct4)
+                fn4_BRK, fn4_SYS: True;
+                default: False;
+            endcase
+            default: False;
+        endcase
+        default: False;
+    endcase;
+endfunction
+
 function DecodedInst decodeInst(Bit#(32) inst);
     let fields = getInstFields(inst);
     return DecodedInst {
@@ -316,6 +334,7 @@ function DecodedInst decodeInst(Bit#(32) inst);
         serial: isSerialInst(fields),
         barrier: isBarrier(fields),
         fu: getFU(fields),
+        forceExceptionSkip: isForceExceptionSkip(fields),
         inst: inst
     };
 endfunction

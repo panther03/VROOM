@@ -8,6 +8,14 @@ EXTERN FN PrintNum(
     IN x: UWORD
 )
 
+EXTERN FN PrintNumFull(
+    IN x: UWORD
+)
+
+EXTERN FN ExceptionCrash (
+    IN ecause: UWORD
+)
+
 EXTERN FN SimExit ( 
     IN code: UWORD
 )

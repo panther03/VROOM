@@ -91,7 +91,7 @@ module mkExecute #(
                         fn4_MOD: Mod;
                         fn4_MUL: Mul;
                     endcase,
-                    isSigned: fields.funct4 == fn4_MOD
+                    isSigned: fields.funct4 == fn4_DIVS
                 });
             end
             default: begin
