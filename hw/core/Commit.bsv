@@ -89,13 +89,15 @@ module mkCommit #(
                 writeRf(rd, ru.data);
             end
             freeRegister(rd);
-        end else if (e2wResult.di.priv && fields.funct4 == fn4_MTCR || fields.funct4 == fn4_RFE) begin
+        end else if (e2wResult.di.priv && (fields.funct4 == fn4_MTCR || fields.funct4 == fn4_RFE)) begin
             // handling write to control registers (MTCR, RFE)
             // needs to be done here instead of in execute to preserve precise state
             // otherwise need to also flush the pipleine *before* mtcr
             if (commitOk) crs.writeCR((fields.funct4 == fn4_MTCR) ? fields.regC : pack(RS), ru.data); 
         end else if (isStore) begin
-            if (commitOk) mu.commitStore();
+            if (commitOk) begin
+                mu.commitStore();
+            end
         end
         
         if (isValid(finalEcause)) begin
@@ -118,7 +120,8 @@ module mkCommit #(
         
         // instructions with the force exception skip bit (brk,sys) will commit the next pc
         // even though they generate an exception because we do not want to resume to the same instruction
-        if (commitOk || e2wResult.di.forceExceptionSkip) redirectArchState(nextArchState);
+        // TODO: dont really like this logic
+        if (commitOk || (!poisoned && e2wResult.di.forceExceptionSkip)) redirectArchState(nextArchState);
 
         if (commitOk) begin
             konataHelper.stageInst(e2wResult.kid, "C");

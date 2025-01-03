@@ -53,6 +53,7 @@ module mkSim(Empty);
     MainMem mem <- mkMainMem();
     FIFO#(BusRespSource) respTracker <- mkFIFO;
     Reg#(Bit#(32)) cycle_count <- mkReg(0);
+    FIFO#(Bit#(32)) mmioResps <- mkFIFO;
 
     BRAM_Configure cfg = defaultValue();
     cfg.loadFormat = tagged Hex "rom.mem";
@@ -88,13 +89,17 @@ module mkSim(Empty);
 
     function Action handleMMIOReq(BusReq req);
     action
+        let addr32 = {req.addr, 2'h0};
         // Read MMIO
         if (req.byte_strobe == 'h0) begin
             // nothing here atm
+            // hack to get serial input (or lack thereof) working
+            mmioResps.enq(addr32 == 32'hf800_0044 ? {16'hFFFF, 16'h0000} : 32'h0);
+            respTracker.enq(MMIO);
+            //$fdisplay(stderr, "Unrecognized MMIO read: %08x", addr32);
         end else begin
-            let addr32 = {req.addr, 2'h0};
-            // putchar()
-            if (addr32 == 32'he000_fff0) begin
+            // putchar() OR serial on citron bus
+            if (addr32 == 32'he000_fff0 || addr32 == 32'hf800_0044) begin
                 $fwrite(stderr, "%c", req.data[31:24]);
                 $fflush(stderr);
             // exit()
@@ -107,8 +112,11 @@ module mkSim(Empty);
                 end
                 $fflush(stderr);
                 $finish;
+            end else if (addr32[31:12] == 20'hF8001) begin
+                $display("NVRAM write..");
+                //$finish;
             end else begin
-                $fdisplay(stderr, "Unrecognized MMIO access: %08x", addr32);
+                //$fdisplay(stderr, "Unrecognized MMIO write: %08x", addr32);
             end
         end
     endaction
@@ -140,11 +148,12 @@ module mkSim(Empty);
                     datain: ?
                 });
                 respTracker.enq(ROM);
-            end else if (req.addr[29:26] == 4'hE) begin
-                handleMMIOReq(req);
             end else begin
-                $fdisplay(stderr, "Illegal word request to uncached region: %08x", {req.addr, 2'h0});
-                $finish;
+            // if (req.addr[29:26] == 4'hE)
+                handleMMIOReq(req);
+            //end else begin
+            //    $fdisplay(stderr, "Illegal word request to uncached region: %08x", {req.addr, 2'h0});
+            //    $finish;
             end
         end
     endrule
@@ -158,7 +167,9 @@ module mkSim(Empty);
                 Bit#(32) romWord <- rom.portA.response.get();
                 resp = {480'h0, romWord};
             end
-            // MMIO doesnt generate responses for the time being
+            MMIO: begin
+                resp = {480'h0, mmioResps.first}; mmioResps.deq();
+            end
         endcase
         vroom.putBusResp(resp);
     endrule

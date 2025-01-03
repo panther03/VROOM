@@ -83,9 +83,12 @@ if __name__ == "__main__":
                 if f.endswith(".rom"):
                     progs.append(arg_p + "/" + f)
         else:
-            if not arg_p.endswith(".rom"):
-                print("Please supply a .rom or directory containing them as an argument: " + arg_p)
-            progs.append(arg_p)
+            if os.path.exists(arg):
+                progs.append(arg)
+            else:    
+                if not arg_p.endswith(".rom"):
+                    print("Please supply a .rom or directory containing them as an argument: " + arg_p)
+                progs.append(arg_p)
     
 
     for prog in progs:

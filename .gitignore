@@ -2,6 +2,7 @@
 *.sched
 *.so
 *.mem
+*.rom
 output.log
 pipelined.log
 build/

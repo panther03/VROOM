@@ -146,7 +146,7 @@ FN (FormatHandleF) HandleLoadStoreRegFormat (
     shamt5 := XR_EXTR_SHAMT(inst)
     sc := ShiftCodes[XR_EXTR_SC(inst)]
 
-    IF inst & 1 THEN 
+    IF XR_EXTR_FUNCT4(inst) & (1<<2) THEN 
         // Instruction is a load.
         TlPrint("MOV  r%d, %s [r%d + r%d %s %d]\n", ra, opsize, rb, rc, sc, shamt5)
     ELSE 
