@@ -165,10 +165,10 @@ module mkSim(Empty);
             DRAM: resp <- mem.get();
             ROM: begin
                 Bit#(32) romWord <- rom.portA.response.get();
-                resp = {480'h0, romWord};
+                resp = {romWord, 480'h0};
             end
             MMIO: begin
-                resp = {480'h0, mmioResps.first}; mmioResps.deq();
+                resp = {mmioResps.first, 480'h0}; mmioResps.deq();
             end
         endcase
         vroom.putBusResp(resp);

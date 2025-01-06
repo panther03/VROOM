@@ -9,7 +9,7 @@ $(BUILD_DIR)/$(BINARY_NAME): $(BUILD_DIR) $(BSV_FILES)
 verilog: $(BUILD_DIR)/$(BINARY_NAME).v
 $(BUILD_DIR)/$(BINARY_NAME).v: $(BUILD_DIR)
 	mkdir -p $(BUILD_DIR)
-	bsc -remove-dollar $(DEFINES) -D SYNTHESIS $(BSC_FLAGS) $(BINARY_NAME) -verilog -g mk$(BINARY_NAME) -u ./hw/top/$(BINARY_NAME).bsv
+	bsc -remove-dollar $(DEFINES) -D SYNTHESIS $(BSC_FLAGS) $(BINARY_NAME) -verilog -g mk$(BINARY_NAME) -u ./hw/core/$(BINARY_NAME).bsv
 
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)

@@ -235,12 +235,12 @@ module mkVROOM (VROOMIfc);
             L1I: iCache.putFromMem(busResp);
             L1D: dCache.putFromMem(busResp);
             IUNC: begin
-                Vector#(4, IMemResp) iMemResps = unpack(busResp);
-                fromImem.enq(iMemResps[0]);
+                Vector#(16, Word) iMemResps = unpack(busResp);
+                fromImem.enq({32'h0, 32'h0, 32'h0, iMemResps[15]});
             end
             DUNC: begin
                 Vector#(16, DMemResp) dMemResps = unpack(busResp);
-                fromDmem.enq(dMemResps[0]);
+                fromDmem.enq(dMemResps[15]);
             end
         endcase
     endrule

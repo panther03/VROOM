@@ -15,7 +15,7 @@ sim:
 
 syn:
 	@mkdir -p $(BUILD_DIR)/hw
-	make -f hw.mk BUILD_DIR=$(BUILD_DIR)/hw BINARY_NAME=TopCore verilog
+	make -f hw.mk BUILD_DIR=$(BUILD_DIR)/hw BINARY_NAME=VROOM verilog
 #	cp -r hw/mem/*.mem $(BUILD_DIR)/hw
 
 app: compiler

@@ -52,7 +52,7 @@ VERILATOR_FLAGS += --trace
 
 TOP = tb_harness
 
-PROGRAM ?= dotproduct_9c_hw32
+PROGRAM ?= sim
 
 # Input files for Verilator
 VERILATOR_INPUT = $(TOP).v uartdpi.c sim_main.cpp -f input.vc
@@ -77,7 +77,7 @@ run:
 
 	@echo 
 	@echo "-- COPY PROGRAM ------------"
-	cp -f ../../sw/progs/build/$(PROGRAM).hex ./mem.mem
+	cp -f ../../build/hw/rom.mem ./rom.mem
 
 	@echo
 	@echo "-- RUN ---------------------"
