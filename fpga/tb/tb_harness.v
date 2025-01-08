@@ -1,7 +1,6 @@
 // 50mhz clock
 `default_nettype none
 module tb_harness ( input wire clk, input wire rst );
-    integer STDERR = 32'h8000_0002;
 
     //////////////////////
     // Bus slave wires //
@@ -9,31 +8,39 @@ module tb_harness ( input wire clk, input wire rst );
     wire bus_waitrequest;
     wire [31:0] bus_readdata;
     wire bus_readdatavalid;
+    wire [1:0] bus_response;
+    wire bus_writeresponsevalid;
+
 
     ////////////////////////
     // CPU instantiation //
     //////////////////////
     wire [4:0] cpu_m_burstcount;
     wire [31:0] cpu_m_writedata;
-    wire [29:0] cpu_m_address;
+    wire [31:0] cpu_m_address;
     wire cpu_m_write;
     wire cpu_m_read;
     wire [3:0] cpu_m_byteenable;
 
-    CoreWrapper iCORE(
+    CoreWrapper #(
+        .SIMULATION(1)   
+    )iCORE(
         .clk(clk), 
         .rst(rst),
+        .irqs(64'h0),
 //        .uart_tx(uart_tx),
 //        .uart_rx(uart_rx),
-        .bus_waitrequest(bus_waitrequest),
-        .bus_readdata(bus_readdata),
-        .bus_readdatavalid(bus_readdatavalid),
-        .m_burstcount(cpu_m_burstcount),
-        .m_writedata(cpu_m_writedata),
-        .m_address(cpu_m_address),
-        .m_write(cpu_m_write),
-        .m_read(cpu_m_read),
-        .m_byteenable(cpu_m_byteenable)
+        .av_waitrequest(bus_waitrequest),
+        .av_readdata(bus_readdata),
+        .av_readdatavalid(bus_readdatavalid),
+        .av_writeresponsevalid(bus_writeresponsevalid),
+        .av_response(bus_response),
+        .av_burstcount(cpu_m_burstcount),
+        .av_writedata(cpu_m_writedata),
+        .av_address(cpu_m_address),
+        .av_write(cpu_m_write),
+        .av_read(cpu_m_read),
+        .av_byteenable(cpu_m_byteenable)
     );
 
     ////////////////////////
@@ -42,6 +49,8 @@ module tb_harness ( input wire clk, input wire rst );
     wire [31:0] mainmem_s_readdata;
     wire mainmem_s_readdatavalid;
     wire mainmem_s_waitrequest;
+    wire mainmem_s_writeresponsevalid;
+    wire [1:0] mainmem_s_response;
 
     SimpleMemSlave #(
         .base_addr(32'h0),
@@ -51,13 +60,15 @@ module tb_harness ( input wire clk, input wire rst );
         .rst_i(rst),
         .bus_burstcount(cpu_m_burstcount),
         .bus_writedata(cpu_m_writedata),
-        .bus_address(cpu_m_address),
+        .bus_address(cpu_m_address[31:2]),
         .bus_write(cpu_m_write),
         .bus_read(cpu_m_read),
         .bus_byteenable(cpu_m_byteenable),
         .s_readdata(mainmem_s_readdata),
         .s_readdatavalid(mainmem_s_readdatavalid),
-        .s_waitrequest(mainmem_s_waitrequest)
+        .s_waitrequest(mainmem_s_waitrequest),
+        .s_writeresponsevalid(mainmem_s_writeresponsevalid),
+        .s_response(mainmem_s_response)
     );
 
     ////////////////
@@ -66,23 +77,27 @@ module tb_harness ( input wire clk, input wire rst );
     wire [31:0] rom_s_readdata;
     wire rom_s_readdatavalid;
     wire rom_s_waitrequest;
+    wire rom_s_writeresponsevalid;
+    wire [1:0] rom_s_response;
 
     SimpleMemSlave #(
         .base_addr(32'hFFFE0000),
         .mem_size(4096),
-        .loadfile("rom.mem")
+        .loadfile("rom.hex")
     ) iROM (
         .clk_i(clk),
         .rst_i(rst),
         .bus_burstcount(cpu_m_burstcount),
         .bus_writedata(cpu_m_writedata),
-        .bus_address(cpu_m_address),
+        .bus_address(cpu_m_address[31:2]),
         .bus_write(cpu_m_write),
         .bus_read(cpu_m_read),
         .bus_byteenable(cpu_m_byteenable),
         .s_readdata(rom_s_readdata),
         .s_readdatavalid(rom_s_readdatavalid),
-        .s_waitrequest(rom_s_waitrequest)
+        .s_waitrequest(rom_s_waitrequest),
+        .s_writeresponsevalid(rom_s_writeresponsevalid),
+        .s_response(rom_s_response)
     );
 
     /////////////////////////////
@@ -105,6 +120,8 @@ module tb_harness ( input wire clk, input wire rst );
     assign bus_readdata = mainmem_s_readdata | rom_s_readdata;
     assign bus_readdatavalid = mainmem_s_readdatavalid | rom_s_readdatavalid;
     assign bus_waitrequest = mainmem_s_waitrequest | rom_s_waitrequest;
+    assign bus_writeresponsevalid = mainmem_s_writeresponsevalid | rom_s_writeresponsevalid;
+    assign bus_response = mainmem_s_response | rom_s_response;
 
 initial begin
     if ($test$plusargs("trace") != 0) begin
@@ -113,15 +130,5 @@ initial begin
         $dumpvars();
     end
 end
-    always @* begin
-       if (cpu_m_write && ({cpu_m_address,2'h0} == {32'he000_fff8})) begin
-        if (cpu_m_writedata == 0) begin
-            $fdisplay(STDERR, "  [0;32mPASS first thread [0m");
-        end else begin
-            $fdisplay(STDERR, "  [0;31mFAIL first thread[0m (%0d)", {cpu_m_writedata[7:0], cpu_m_writedata[15:8], cpu_m_writedata[23:16], cpu_m_writedata[31:24]});
-        end
-        $finish;
-       end
-    end
 endmodule
 `default_nettype wire

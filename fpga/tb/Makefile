@@ -77,7 +77,7 @@ run:
 
 	@echo 
 	@echo "-- COPY PROGRAM ------------"
-	cp -f ../../build/hw/rom.mem ./rom.mem
+	cp -f ../../build/hw/rom.hex ./rom.hex
 
 	@echo
 	@echo "-- RUN ---------------------"

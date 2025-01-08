@@ -13,7 +13,7 @@ import Alu::*;
 import ControlRegs::*;
 
 interface ExceptionsIntf;
-    method Action putASyncException();
+    method Action putASyncException(Bool isBusError);
     method Action putSyncException(ExceptionRequest er);
 endinterface
 
@@ -26,7 +26,8 @@ module mkExceptions #(
     function Action redirectFrontend(ControlRedirection r),
     function Action redirectBackend(ControlRedirection r)
 )(ExceptionsIntf);
-    Ehr#(2, Bool) busy <- mkEhr(False);
+    Reg#(Bool) busy <- mkReg(False);
+    PulseWire syncExcStarted <- mkPulseWire;
     Reg#(ExceptionRequest) erReg <- mkReg(?);
 
     rule exceptionHandler if (fsm.getState() == Exception);
@@ -52,19 +53,20 @@ module mkExceptions #(
         redirectFrontend(cr);
         redirectBackend(cr);
         fsm.trs_FinishException(); 
-        busy[0] <= False;      
+        busy <= False;      
     endrule
 
-    method Action putASyncException() if (!busy[1] && fsm.getState() != Exception);
+    method Action putASyncException(Bool isBusError) if (!busy && !syncExcStarted && fsm.getState() != Exception);
         erReg <= ExceptionRequest {
-            ecause: ecause_INT
+            ecause: isBusError ? ecause_BUS : ecause_INT
         };
-        busy[0] <= True;
+        busy <= True;
     endmethod
 
-    method Action putSyncException(ExceptionRequest er) if (!busy[0] && fsm.getState() != Exception);
+    method Action putSyncException(ExceptionRequest er) if (!busy && fsm.getState() != Exception);
         erReg <= er;
-        busy[0] <= True;
+        busy <= True;
+        syncExcStarted.send();
     endmethod
 
 endmodule

@@ -34,6 +34,10 @@ import ICache::*;
 interface VROOMIfc;
     method ActionValue#(BusReq) getBusReq();
     method Action putBusResp(BusResp r);
+    (* always_ready, always_enabled *)
+    method Action putIrq((* port = "irq" *)Bool line);
+    (* always_ready, always_enabled *)
+    method Action putBusError((* port = "busError" *)Bool line);
 endinterface
 
 /////////////////////
@@ -70,6 +74,9 @@ module mkVROOM (VROOMIfc);
     // This is where we resume to when an exception happens.
     Ehr#(2, Bit#(32)) npc <- mkEhr(32'hFFFE1000);
     Ehr#(2, Epoch) epoch <- mkEhr(2'h0);
+
+    Wire#(Bool) irq <- mkWire;
+    Wire#(Bool) busError <- mkWire;
 
     ////////////////////////////////
     // Stages + Functional Units //
@@ -236,7 +243,7 @@ module mkVROOM (VROOMIfc);
             L1D: dCache.putFromMem(busResp);
             IUNC: begin
                 Vector#(16, Word) iMemResps = unpack(busResp);
-                fromImem.enq({32'h0, 32'h0, 32'h0, iMemResps[15]});
+                fromImem.enq({32'hABABABAB, 32'h0, 32'hCCCCCCCC, iMemResps[15]});
             end
             DUNC: begin
                 Vector#(16, DMemResp) dMemResps = unpack(busResp);
@@ -351,11 +358,13 @@ module mkVROOM (VROOMIfc);
     );
    
 
-    rule handleAsyncException;
-        // TODO: no idea how to do a wire input for the IRQ properly
-        if (False) begin
+    rule handleAsyncException if (fsm.runOk());
+        if (busError) begin
             fsm.trs_EnterASyncException();
-            exceptions.putASyncException();
+            exceptions.putASyncException(True);
+        end else if (irq) begin
+            fsm.trs_EnterASyncException();
+            exceptions.putASyncException(False);
         end
     endrule
 
@@ -370,5 +379,13 @@ module mkVROOM (VROOMIfc);
 
     method Action putBusResp(BusResp r);
 		fromBus.enq(r);
+    endmethod
+
+    method Action putIrq(Bool line);
+        irq <= line;
+    endmethod
+
+    method Action putBusError(Bool line);
+        busError <= line;
     endmethod
 endmodule

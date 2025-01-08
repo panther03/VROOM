@@ -1,4 +1,4 @@
 obj_dir/
 uart0.log
 logs/
-mem.mem
+*.hex

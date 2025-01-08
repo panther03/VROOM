@@ -21,7 +21,7 @@ interface KonataIntf;
 endinterface
 
 `ifdef KONATA_ENABLE
-Bit#(32) deadlockLimit = 32'd400;
+Bit#(32) deadlockLimit = 32'd800;
 // Konata-enabled implementation
 module mkKonata (KonataIntf);
     Reg#(KonataId) allCtr <- mkReg(0);

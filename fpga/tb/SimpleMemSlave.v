@@ -18,7 +18,9 @@ module SimpleMemSlave #(
     // Slave output
     output wire s_waitrequest,
     output wire [31:0] s_readdata,
-    output wire s_readdatavalid
+    output wire s_readdatavalid,
+    output wire s_writeresponsevalid,
+    output wire [1:0] s_response
 );
 
 localparam integer mem_bits = $clog2(mem_size) - 1;
@@ -74,6 +76,8 @@ always @(posedge clk_i) begin
 end
 
 assign s_readdata = (go_r & rd_n_wr_r) ? (byteenable_mask & mem[mem_addr_r]) : 0;
-assign s_readdatavalid = go_r;
+assign s_readdatavalid = (go_r & rd_n_wr_r);
 assign s_waitrequest = is_my_transaction ? ~go_r : 1'b0;
+assign s_writeresponsevalid = (go_r & ~rd_n_wr_r);
+assign s_response = 2'b00;
 endmodule

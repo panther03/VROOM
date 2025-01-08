@@ -56,7 +56,7 @@ module mkSim(Empty);
     FIFO#(Bit#(32)) mmioResps <- mkFIFO;
 
     BRAM_Configure cfg = defaultValue();
-    cfg.loadFormat = tagged Hex "rom.mem";
+    cfg.loadFormat = tagged Hex "rom.hex";
     BRAM1Port#(Bit#(14), Word) rom <- mkBRAM1Server(cfg);
 
 /* 
@@ -173,5 +173,9 @@ module mkSim(Empty);
         endcase
         vroom.putBusResp(resp);
     endrule
-    
+
+    rule irqDefault;
+        vroom.putIrq(False);
+        vroom.putBusError(False);
+    endrule
 endmodule

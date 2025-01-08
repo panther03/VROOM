@@ -218,7 +218,7 @@ module mkCache32(Cache32);
             lineReqQ.enq(BusReq {
                 byte_strobe: 4'h0,
                 line_en: 1,
-                addr: 0,
+                addr: (32'h00000800)[31:2],
                 data: ?
             });
         end else begin

@@ -54,7 +54,7 @@ fmt_string = f"{addr_fmt_string}: {data_fmt_string};"
 words = [bytes[i:i+bytes_per_word] for i in range(0, len(bytes), bytes_per_word)]
 for addr, w in enumerate(words):
     value = 0
-    w.reverse()
+    #w.reverse()
     for b in w:        
         value = value * 256 + b
     print(fmt_string.format(addr, value))

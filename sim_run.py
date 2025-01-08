@@ -42,7 +42,7 @@ def to_string(list_of_words):
 ROM_WIDTH = 1
 
 def convert_rom(inp_rom):
-    with open(inp_rom, 'rb') as input, open("build/hw/rom.mem", "w") as output:
+    with open(inp_rom, 'rb') as input, open("build/hw/rom.hex", "w") as output:
         output.write('@')
         ind = 0
         line = ""
