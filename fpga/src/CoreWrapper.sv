@@ -16,13 +16,15 @@ module CoreWrapper #(
 	output wire [31:0] av_address,
 	output wire        av_write,
 	output wire 	   av_read,
-	output wire [ 3:0] av_byteenable
+	output wire [ 3:0] av_byteenable,
+	output wire 	   uart_tx,
+	input  wire 	   uart_rx
 );
-	wire bus_waitrequest_local;
-	wire [31:0] bus_readdata_local;
-	wire bus_readdatavalid_local;
-	wire [1:0] bus_response_local;
-	wire bus_writeresponsevalid_local;
+	reg bus_waitrequest_local;
+	reg [31:0] bus_readdata_local;
+	reg bus_readdatavalid_local;
+	reg [1:0] bus_response_local;
+	reg bus_writeresponsevalid_local;
 
 	wire [31:0] lsic_badAddr;
 	wire lsic_badAddrAck;
@@ -135,18 +137,51 @@ module CoreWrapper #(
 		.bus_byteenable(cpu_byteenable)
 	);
 
+	/////////////////
+	// UART slave //
+	///////////////
+	wire uart_s_waitrequest;
+	wire [31:0] uart_s_readdata;
+	wire uart_s_readdatavalid;
+	wire [1:0] uart_s_response;
+	wire uart_s_writeresponsevalid;
+	wire uart_all_done;
+
+	spart iSPART (
+		.clk(clk),
+		.rst_n(~rst),
+		.s_waitrequest(uart_s_waitrequest),
+		.s_readdata(uart_s_readdata),
+		.s_readdatavalid(uart_s_readdatavalid),
+		.s_response(uart_s_response),
+		.s_writeresponsevalid(uart_s_writeresponsevalid),
+		.bus_burstcount(cpu_burstcount),
+		.bus_writedata(cpu_writedata),
+		.bus_address(cpu_address),
+		.bus_write(cpu_write),
+		.bus_read(cpu_read),
+		.bus_byteenable(cpu_byteenable),
+		.TX(uart_tx),
+		.RX(uart_rx),
+		.all_done(uart_all_done)
+	);
+
+	//////////////////////////////////
+	// Simulation print/exit slave //
+	////////////////////////////////
 	wire simdebug_s_waitrequest;
 	wire [31:0] simdebug_s_readdata;
 	wire simdebug_s_readdatavalid;
 	wire [1:0] simdebug_s_response;
 	wire simdebug_s_writeresponsevalid;
-	generate if (SIMULATION) 
-		//////////////////////////////////
-		// Simulation print/exit slave //
-		////////////////////////////////
+	wire simdebug_addr_check = 0;
+	generate if (SIMULATION) begin
+		assign simdebug_addr_check = (av_address[31:28] == 4'hE) && ($test$plusargs("a4x") == 0);
+
 		SimDebugSlave iDEBUG (
 			.clk_i(clk),
 			.rst_i(rst),
+			.uart_all_done(uart_all_done),
 			.bus_burstcount(cpu_burstcount),
 			.bus_writedata(cpu_writedata),
 			.bus_address(av_address),
@@ -159,7 +194,8 @@ module CoreWrapper #(
 			.s_writeresponsevalid(simdebug_s_writeresponsevalid),
 			.s_response(simdebug_s_response)
 		);
-	else
+	end else begin
+		assign simdebug_addr_check = 1'b1;
 		// This is just there to make the compiler happy. 
 		// A write/read to this address will deadlock the system due to lack of response!
 		assign simdebug_s_waitrequest = 0;
@@ -167,17 +203,38 @@ module CoreWrapper #(
 		assign simdebug_s_readdatavalid = 0;
 		assign simdebug_s_response = 0;
 		assign simdebug_s_writeresponsevalid = 0;
-	endgenerate
+	end endgenerate
 	
 	//////////////////////////
 	// Connect bus signals //
 	////////////////////////
 
-	assign bus_waitrequest_local = lsic_s_waitrequest | av_waitrequest | simdebug_s_waitrequest;
-	assign bus_readdata_local = lsic_s_readdata | av_readdata | simdebug_s_readdata;
-	assign bus_readdatavalid_local = lsic_s_readdatavalid | av_readdatavalid | simdebug_s_readdatavalid;
-	assign bus_response_local = lsic_s_response | av_response | simdebug_s_response;
-	assign bus_writeresponsevalid_local = lsic_s_writeresponsevalid | av_writeresponsevalid | simdebug_s_writeresponsevalid;
+	wire no_match_w = 
+		av_address[31:15] != 17'h0 	// DRAM
+		&& av_address[31:5] != {24'hf80300, 3'h0}
+		&& av_address[31:16] != {16'hFFFE} // ROM
+		&& av_address[31:10] != {20'hF8000, 2'b00} // Citron
+		&& !simdebug_addr_check;
+	reg no_match_r;
+
+	always @(posedge clk)
+		no_match_r <= no_match_w;
+
+	always @* begin
+		if (no_match_w) begin
+			bus_waitrequest_local = 1'b0;
+			bus_readdata_local = 0;
+			bus_readdatavalid_local = 1'b1;
+			bus_writeresponsevalid_local = 1'b1;
+			bus_response_local = 2'b00;
+		end else begin
+			bus_waitrequest_local = lsic_s_waitrequest | av_waitrequest | simdebug_s_waitrequest | uart_s_waitrequest;
+			bus_readdata_local = lsic_s_readdata | av_readdata | simdebug_s_readdata | uart_s_readdata;
+			bus_readdatavalid_local = lsic_s_readdatavalid | av_readdatavalid | simdebug_s_readdatavalid | uart_s_readdatavalid;
+			bus_response_local = lsic_s_response | av_response | simdebug_s_response | uart_s_response;
+			bus_writeresponsevalid_local = lsic_s_writeresponsevalid | av_writeresponsevalid | simdebug_s_writeresponsevalid | uart_s_writeresponsevalid;
+		end
+	end	
 endmodule
 
 module CpuBusMaster (

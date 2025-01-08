@@ -198,6 +198,26 @@
    type="VERILOG"
    library="VROOM_0" />
  <file
+   path="sim_system/testbench/sim_system_tb/simulation/submodules/SimDebugSlave.v"
+   type="VERILOG"
+   library="VROOM_0" />
+ <file
+   path="sim_system/testbench/sim_system_tb/simulation/submodules/UART_rx.sv"
+   type="SYSTEM_VERILOG"
+   library="VROOM_0" />
+ <file
+   path="sim_system/testbench/sim_system_tb/simulation/submodules/UART_tx.sv"
+   type="SYSTEM_VERILOG"
+   library="VROOM_0" />
+ <file
+   path="sim_system/testbench/sim_system_tb/simulation/submodules/queue.sv"
+   type="SYSTEM_VERILOG"
+   library="VROOM_0" />
+ <file
+   path="sim_system/testbench/sim_system_tb/simulation/submodules/spart.sv"
+   type="SYSTEM_VERILOG"
+   library="VROOM_0" />
+ <file
    path="sim_system/testbench/sim_system_tb/simulation/submodules/sim_system_ROM.v"
    type="VERILOG"
    library="ROM" />

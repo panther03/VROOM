@@ -1,12 +1,12 @@
-# system info sim_system_tb on 2025.01.07.21:31:37
+# system info sim_system_tb on 2025.01.08.12:21:08
 system_info:
 name,value
 DEVICE,5SGSMD5K1F40C1
 DEVICE_FAMILY,Stratix V
-GENERATION_ID,1736307095
+GENERATION_ID,1736360465
 #
 #
-# Files generated for sim_system_tb on 2025.01.07.21:31:37
+# Files generated for sim_system_tb on 2025.01.08.12:21:08
 files:
 filepath,kind,attributes,module,is_top
 sim_system/testbench/sim_system_tb/simulation/sim_system_tb.v,VERILOG,,sim_system_tb,true
@@ -31,6 +31,11 @@ sim_system/testbench/sim_system_tb/simulation/submodules/SyncFIFO.v,VERILOG,,Cor
 sim_system/testbench/sim_system_tb/simulation/submodules/mkCache32.v,VERILOG,,CoreWrapper,false
 sim_system/testbench/sim_system_tb/simulation/submodules/mkICache.v,VERILOG,,CoreWrapper,false
 sim_system/testbench/sim_system_tb/simulation/submodules/mkVROOM.v,VERILOG,,CoreWrapper,false
+sim_system/testbench/sim_system_tb/simulation/submodules/SimDebugSlave.v,VERILOG,,CoreWrapper,false
+sim_system/testbench/sim_system_tb/simulation/submodules/UART_rx.sv,SYSTEM_VERILOG,,CoreWrapper,false
+sim_system/testbench/sim_system_tb/simulation/submodules/UART_tx.sv,SYSTEM_VERILOG,,CoreWrapper,false
+sim_system/testbench/sim_system_tb/simulation/submodules/queue.sv,SYSTEM_VERILOG,,CoreWrapper,false
+sim_system/testbench/sim_system_tb/simulation/submodules/spart.sv,SYSTEM_VERILOG,,CoreWrapper,false
 sim_system/testbench/sim_system_tb/simulation/submodules/interrupt_connections.v,VERILOG,,interrupt_connections,false
 sim_system/testbench/sim_system_tb/simulation/submodules/sim_system_mm_interconnect_0.v,VERILOG,,sim_system_mm_interconnect_0,false
 sim_system/testbench/sim_system_tb/simulation/submodules/altera_reset_controller.v,VERILOG,,altera_reset_controller,false

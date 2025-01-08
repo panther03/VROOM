@@ -21,6 +21,8 @@ module tb_harness ( input wire clk, input wire rst );
     wire cpu_m_write;
     wire cpu_m_read;
     wire [3:0] cpu_m_byteenable;
+    wire uart_tx;
+    wire uart_rx;
 
     CoreWrapper #(
         .SIMULATION(1)   
@@ -28,8 +30,8 @@ module tb_harness ( input wire clk, input wire rst );
         .clk(clk), 
         .rst(rst),
         .irqs(64'h0),
-//        .uart_tx(uart_tx),
-//        .uart_rx(uart_rx),
+        .uart_tx(uart_tx),
+        .uart_rx(uart_rx),
         .av_waitrequest(bus_waitrequest),
         .av_readdata(bus_readdata),
         .av_readdatavalid(bus_readdatavalid),
@@ -82,7 +84,7 @@ module tb_harness ( input wire clk, input wire rst );
 
     SimpleMemSlave #(
         .base_addr(32'hFFFE0000),
-        .mem_size(4096),
+        .mem_size(16384),
         .loadfile("rom.hex")
     ) iROM (
         .clk_i(clk),
@@ -103,16 +105,16 @@ module tb_harness ( input wire clk, input wire rst );
     /////////////////////////////
     // instantiate uart model //
     ///////////////////////////
-    //uartdpi #(
-    //    .BAUD(115200),
-    //    .FREQ(50_000_000)
-    //) iUART (
-    //    .clk_i(clk),
-    //    .rst_ni(~rst),
-    //    .active(1'b1),
-    //    .tx_o(uart_rx),
-    //    .rx_i(uart_tx)
-    //);
+    uartdpi #(
+        .BAUD(115200),
+        .FREQ(50_000_000)
+    ) iUART (
+        .clk_i(clk),
+        .rst_ni(~rst),
+        .active(1'b1),
+        .tx_o(uart_rx),
+        .rx_i(uart_tx)
+    );
 
     //////////////////
     // Connect Bus //

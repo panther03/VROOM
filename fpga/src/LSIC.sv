@@ -121,7 +121,8 @@ module LSIC (
     end
 
 
-    wire is_my_transaction = bus_address[29:6] == 24'hf80300;
+    // Bottom 3 bits should be 0, we only care about the first LSIC
+    wire is_my_transaction = bus_address[29:3] == {24'hf80300, 3'h0};
     wire start_transaction = (bus_read || bus_write);
 
     always @(*) begin
@@ -172,5 +173,7 @@ module LSIC (
 
     assign cpu_irq = claim_ff2_r[6];
     assign cpu_buserror = badAddr_r[32];
+
+    assign badAddrAck = badAddrAck_r;
 
 endmodule

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <EnsembleReport name="sim_system" kind="sim_system" version="1.0" fabric="QSYS">
  <!-- Format version 23.1 993 (Future versions may contain additional information.) -->
- <!-- 2025.01.07.21:31:33 -->
+ <!-- 2025.01.08.12:21:03 -->
  <!-- A collection of modules and connections -->
  <parameter name="AUTO_GENERATION_ID">
   <type>java.lang.Integer</type>
-  <value>1736307093</value>
+  <value>1736360463</value>
   <derived>false</derived>
   <enabled>true</enabled>
   <visible>false</visible>
@@ -2344,6 +2344,57 @@ parameters are a RESULT of the module parameters. -->
     <role>new_signal</role>
    </port>
   </interface>
+  <interface name="uart" kind="conduit_end" version="23.1">
+   <!-- The connection points exposed by a module instance for the
+particular module parameters. Connection points and their
+parameters are a RESULT of the module parameters. -->
+   <parameter name="associatedClock">
+    <type>java.lang.String</type>
+    <value>clock</value>
+    <derived>false</derived>
+    <enabled>true</enabled>
+    <visible>true</visible>
+    <valid>true</valid>
+   </parameter>
+   <parameter name="associatedReset">
+    <type>java.lang.String</type>
+    <value></value>
+    <derived>false</derived>
+    <enabled>true</enabled>
+    <visible>true</visible>
+    <valid>true</valid>
+   </parameter>
+   <parameter name="deviceFamily">
+    <type>java.lang.String</type>
+    <value>UNKNOWN</value>
+    <derived>false</derived>
+    <enabled>true</enabled>
+    <visible>true</visible>
+    <valid>true</valid>
+   </parameter>
+   <parameter name="generateLegacySim">
+    <type>boolean</type>
+    <value>false</value>
+    <derived>false</derived>
+    <enabled>true</enabled>
+    <visible>true</visible>
+    <valid>true</valid>
+   </parameter>
+   <type>conduit</type>
+   <isStart>false</isStart>
+   <port>
+    <name>uart_rx</name>
+    <direction>Input</direction>
+    <width>1</width>
+    <role>new_signal</role>
+   </port>
+   <port>
+    <name>uart_tx</name>
+    <direction>Input</direction>
+    <width>1</width>
+    <role>new_signal_1</role>
+   </port>
+  </interface>
  </module>
  <module name="clk_0" kind="clock_source" version="23.1" path="clk_0">
   <!-- Describes a single module. Module parameters are
@@ -3188,7 +3239,7 @@ parameters are a RESULT of the module parameters. -->
   <version>23.1</version>
  </plugin>
  <plugin>
-  <instanceCount>2</instanceCount>
+  <instanceCount>3</instanceCount>
   <name>conduit_end</name>
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IMutableConnectionPoint</subtype>

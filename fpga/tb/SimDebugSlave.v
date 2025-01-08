@@ -4,6 +4,7 @@ module SimDebugSlave #(
 ) (
     input wire clk_i,
     input wire rst_i,
+    input wire uart_all_done,
 
     // Slave Input
     input wire [4:0] bus_burstcount,
@@ -29,18 +30,42 @@ module SimDebugSlave #(
         assign is_my_transaction = bus_address[31:4] == 28'he000_fff; 
     endgenerate 
 
-    always @* begin
-        if (bus_write && is_my_transaction && (bus_address[3:0] == 4'h8)) begin
-            if (bus_writedata == 0) begin
-                $fdisplay(STDERR, "  [0;32mPASS first thread [0m");
-            end else begin
-                $fdisplay(STDERR, "  [0;31mFAIL first thread[0m (%0d)", 
-                    {bus_writedata[7:0], bus_writedata[15:8], bus_writedata[23:16], bus_writedata[31:24]});
-            end
-            $finish;
-        end else if (bus_write && is_my_transaction && (bus_address[3:0] == 4'h0)) begin
+    reg pend_finish_r;
+    reg [31:0] finish_code_r;
+    reg pend_finish_rw;
+    reg [31:0] finish_code_rw;
+
+    always @(posedge clk_i) begin
+        if (rst_i) begin
+            pend_finish_r <= 0;
+            finish_code_r <= 0;
+        end else begin
+            pend_finish_r <= pend_finish_rw;
+            finish_code_r <= finish_code_rw;
+        end
+    end
+
+    always @(posedge clk_i) begin
+        if (bus_write && is_my_transaction && (bus_address[3:0] == 4'h0)) begin
             $fwrite(STDERR, "%c", bus_writedata[31:24]);
             $fflush(STDERR);
+        end
+    end
+
+    always @* begin
+        finish_code_rw = finish_code_r;
+        pend_finish_rw = pend_finish_r;
+        if (!rst_i && pend_finish_r && uart_all_done) begin
+            if (finish_code_r == 0) begin
+                $fdisplay(STDERR, "  [0;32mPASS first thread [0m");
+            end else begin
+                $fdisplay(STDERR, "  [0;31mFAIL first thread[0m (%0d)", finish_code_r);
+            end
+            $finish;
+        end
+        if (bus_write && is_my_transaction && (bus_address[3:0] == 4'h8)) begin
+            pend_finish_rw = 1;
+            finish_code_rw = {bus_writedata[7:0], bus_writedata[15:8], bus_writedata[23:16], bus_writedata[31:24]};
         end
     end
 

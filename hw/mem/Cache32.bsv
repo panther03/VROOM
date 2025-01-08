@@ -155,7 +155,7 @@ typedef struct {
 // Notice the asymmetry in this interface, as mentioned in lecture.
 // The processor thinks in 32 bits, but the other side thinks in 512 bits.
 interface Cache32;
-    method Action putFromProc(DMemReq e);
+    method Action putFromProc(DMemReq e, Bool passthrough);
     method ActionValue#(Word) getToProc();
     method ActionValue#(BusReq) getToMem();
     method Action putFromMem(BusResp e);
@@ -177,6 +177,8 @@ module mkCache32(Cache32);
 
     Reg#(CacheState) state <- mkReg(WaitCAUResp);
     Reg#(Bit#(32)) cyc <- mkReg(0);
+
+    Reg#(Bool) doPassthrough <- mkReg(False);
     
     SrReg doInvalidate <- mkSrReg(True);
     SrReg doFlush <- mkSrReg(True);
@@ -231,7 +233,28 @@ module mkCache32(Cache32);
         flushCounter <= flushCounter + 1;
     endrule
 
-    rule handleCAUResponse if (state == WaitCAUResp && !doFlush.read() && !doInvalidate.read());
+    // lol
+    rule startPassthrough if (state == WaitCAUResp && doPassthrough && !doFlush.read() && !doInvalidate.read());
+        let currReq = currReqQ.first(); currReqQ.deq();
+        lineReqQ.enq(BusReq {
+            byte_strobe: currReq.req.word_byte,
+            line_en: 0,
+            addr: currReq.req.addr,
+            data: {480'h0, currReq.req.data}
+        });
+        doPassthrough <= False;
+        // dont need to wait for response on write
+        state <= (currReq.req.word_byte == 0) ? BusPassthrough : WaitCAUResp;
+    endrule
+
+    rule handleBusPassthrough if (state == BusPassthrough);
+        let lineResp = lineRespQ.first; lineRespQ.deq();
+        Vector#(16, Word) lineRespWords = unpack(lineResp);
+        hitQ.enq(lineRespWords[15]);
+        state <= WaitCAUResp;
+    endrule
+
+    rule handleCAUResponse if (state == WaitCAUResp && !doFlush.read() && !doInvalidate.read() && !doPassthrough);
         let currReq = currReqQ.first();
         let pa = parseL1Address(currReq.req.addr);
         if (currReq.hit) begin 
@@ -264,7 +287,8 @@ module mkCache32(Cache32);
                 lineReqQ.enq(BusReq {
                     byte_strobe: 4'h0,
                     line_en: 1,
-                    addr: currReq.req.addr,
+                    // make sure we ask for the real line
+                    addr: {currReq.req.addr[29:2], 2'h0},
                     data: ?
                 });
                 if (debug) begin 
@@ -286,7 +310,7 @@ module mkCache32(Cache32);
         end
         lineReqQ.enq(BusReq {
             byte_strobe: 4'h0,
-            addr: currReq.req.addr,
+            addr: {currReq.req.addr[29:2], 2'h0},
             line_en: 1,
             data: ?
         });
@@ -331,27 +355,32 @@ module mkCache32(Cache32);
         state <= WaitCAUResp;
     endrule
 
-    method Action putFromProc(DMemReq e) if (!doFlush.read());
-        let hitMissResult <- cau.req(e);
-        let pa = parseL1Address(e.addr);
-        case (hitMissResult)
-            LdHit: begin
-                if (debug) $display("(cyc=%d) [Load Hit  ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
-                currReqQ.enq(HitMissDMemReq{req: e, hit: True});
-            end
-            // StHit don't need to do anything
-            StHit: begin
-                if (debug) $display("(cyc=%d) [St Hit    ] Tag=%d Index=%d Offset=%d WB=%d Data=%d", cyc, pa.tag, pa.index, pa.offset, e.word_byte, e.data);
-                currReqQ.enq(HitMissDMemReq{req: e, hit: True});
-            end
-            Miss: begin
-                if (debug) begin 
-                    if (e.word_byte == 0) $display("(cyc=%d) [Load Miss ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
-                    else $display("(cyc=%d) [St Miss   ] Tag=%d Index=%d Offset=%d WB=%d Data=%d", cyc, pa.tag, pa.index, pa.offset, e.word_byte, e.data);
+    method Action putFromProc(DMemReq e, Bool passthrough) if (!doFlush.read() && !doPassthrough);
+        if (passthrough) begin
+            currReqQ.enq(HitMissDMemReq{req: e, hit: False});
+            doPassthrough <= True;
+        end else begin
+            let hitMissResult <- cau.req(e);
+            let pa = parseL1Address(e.addr);
+            case (hitMissResult)
+                LdHit: begin
+                    if (debug) $display("(cyc=%d) [Load Hit  ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
+                    currReqQ.enq(HitMissDMemReq{req: e, hit: True});
                 end
-                currReqQ.enq(HitMissDMemReq{req: e, hit: False});
-            end
-        endcase
+                // StHit don't need to do anything
+                StHit: begin
+                    if (debug) $display("(cyc=%d) [St Hit    ] Tag=%d Index=%d Offset=%d WB=%d Data=%d", cyc, pa.tag, pa.index, pa.offset, e.word_byte, e.data);
+                    currReqQ.enq(HitMissDMemReq{req: e, hit: True});
+                end
+                Miss: begin
+                    if (debug) begin 
+                        if (e.word_byte == 0) $display("(cyc=%d) [Load Miss ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
+                        else $display("(cyc=%d) [St Miss   ] Tag=%d Index=%d Offset=%d WB=%d Data=%d", cyc, pa.tag, pa.index, pa.offset, e.word_byte, e.data);
+                    end
+                    currReqQ.enq(HitMissDMemReq{req: e, hit: False});
+                end
+            endcase
+        end
     endmethod
 
     method Action invalidateLines();

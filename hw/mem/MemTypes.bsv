@@ -19,7 +19,7 @@ typedef Bit#(128) IMemResp;
 /////////////////
 typedef enum{LdHit, StHit, Miss} HitMissType deriving (Bits, Eq);
 
-typedef enum {WaitCAUResp, SendReq, WaitDramResp} CacheState deriving (Eq, Bits, FShow);
+typedef enum {WaitCAUResp, SendReq, WaitDramResp, BusPassthrough} CacheState deriving (Eq, Bits, FShow);
 
 // You can translate between Vector#(16, Word) and Bit#(512) using the pack/unpack builtin functions.
 typedef Bit#(512) LineData;

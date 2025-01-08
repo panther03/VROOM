@@ -23,8 +23,8 @@ module SimpleMemSlave #(
     output wire [1:0] s_response
 );
 
-localparam integer mem_bits = $clog2(mem_size) - 1;
-localparam [29:0] base_addr_mask = ~((1 << mem_bits) - 1);
+localparam integer mem_bits = $clog2(mem_size);
+localparam [29:0] base_addr_mask = ~((1 << (mem_bits)) - 1);
 localparam [29:0] base_addr_trunc = base_addr[31:2];
 
 // instantiate memory

@@ -1,0 +1,14 @@
+#INCLUDE "<inc>/Util.hjk"
+
+BadAddr : ^UBYTE = CAST 0xF8000064 TO ^UBYTE
+
+FN TestMain () : UWORD
+    BadAddr^ = 0x39
+    BARRIER
+    SimPutc('!')
+    SimPutc(BadAddr^ + 0x30)
+    BARRIER
+    BadAddr^ = 0x69
+
+    RETURN 0
+END

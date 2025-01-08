@@ -108,7 +108,7 @@ typedef struct {
 // Notice the asymmetry in this interface, as mentioned in lecture.
 // The processor thinks in 32 bits, but the other side thinks in 512 bits.
 interface ICache;
-    method Action putFromProc(IMemReq e);
+    method Action putFromProc(IMemReq e, Bool passthrough);
     method ActionValue#(IMemResp) getToProc();
     method ActionValue#(BusReq) getToMem();
     method Action putFromMem(BusResp e);
@@ -124,6 +124,8 @@ module mkICache(ICache);
     FIFO#(HitMissCacheReq) currReqQ <- mkPipelineFIFO;
     FIFO#(BusReq) lineReqQ <- mkFIFO;
     FIFO#(BusResp) lineRespQ <- mkFIFO;
+
+    Reg#(Bool) doPassthrough <- mkReg(False);
 
     Reg#(CacheState) state <- mkReg(WaitCAUResp);
     Reg#(Bit#(32)) cyc <- mkReg(0);
@@ -145,7 +147,27 @@ module mkICache(ICache);
         cyc <= cyc + 1;
     endrule
 
-    rule handleCAUResponse if (state == WaitCAUResp && !doInvalidate);
+    // lol
+    rule startPassthrough if (state == WaitCAUResp && doPassthrough && !doInvalidate);
+        let currReq = currReqQ.first(); currReqQ.deq();
+        lineReqQ.enq(BusReq {
+            byte_strobe: 4'h0,
+            line_en: 0,
+            addr: currReq.req.addr,
+            data: ?
+        });
+        doPassthrough <= False;
+        state <= BusPassthrough;
+    endrule
+
+    rule handleBusPassthrough if (state == BusPassthrough);
+        let lineResp = lineRespQ.first; lineRespQ.deq();
+        Vector#(16, Word) lineRespWords = unpack(lineResp);
+        hitQ.enq({96'h0, lineRespWords[15]});
+        state <= WaitCAUResp;
+    endrule
+
+    rule handleCAUResponse if (state == WaitCAUResp && !doInvalidate && !doPassthrough);
         let currReq = currReqQ.first();
         let pa = parseL1IAddress(currReq.req.addr[29:2]);
         if (currReq.hit) begin 
@@ -227,26 +249,31 @@ module mkICache(ICache);
         state <= WaitCAUResp;
     endrule
 
-    method Action putFromProc(IMemReq e);
-        let hitMissResult <- cau.req(e);
-        let pa = parseL1IAddress(e.addr[29:2]);
-        case (hitMissResult)
-            LdHit: begin
-                if (debug) $display("(cyc=%d) [Load Hit  ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
-                currReqQ.enq(HitMissCacheReq{req: e, hit: True});
-            end
-            // StHit don't need to do anything
-            StHit: begin
-                if (debug) $display("(cyc=%d) [St Hit    ] Tag=%d Index=%d Offset=%d WB=%d", cyc, pa.tag, pa.index, pa.offset);
-                currReqQ.enq(HitMissCacheReq{req: e, hit: True});
-            end
-            Miss: begin
-                if (debug) begin 
-                    $display("(cyc=%d) [Load Miss ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
+    method Action putFromProc(IMemReq e, Bool passthrough) if (!doPassthrough);
+        if (passthrough) begin
+            currReqQ.enq(HitMissCacheReq{req: e, hit: False});
+            doPassthrough <= True;
+        end else begin
+            let hitMissResult <- cau.req(e);
+            let pa = parseL1IAddress(e.addr[29:2]);
+            case (hitMissResult)
+                LdHit: begin
+                    if (debug) $display("(cyc=%d) [Load Hit  ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
+                    currReqQ.enq(HitMissCacheReq{req: e, hit: True});
                 end
-                currReqQ.enq(HitMissCacheReq{req: e, hit: False});
+                // StHit don't need to do anything
+                StHit: begin
+                    if (debug) $display("(cyc=%d) [St Hit    ] Tag=%d Index=%d Offset=%d WB=%d", cyc, pa.tag, pa.index, pa.offset);
+                    currReqQ.enq(HitMissCacheReq{req: e, hit: True});
+                end
+                Miss: begin
+                    if (debug) begin 
+                        $display("(cyc=%d) [Load Miss ] Tag=%d Index=%d Offset=%d", cyc, pa.tag, pa.index, pa.offset);
+                    end
+                    currReqQ.enq(HitMissCacheReq{req: e, hit: False});
+                end
+            endcase
             end
-        endcase
     endmethod
 
     method Action invalidateLines() if (!doInvalidate);

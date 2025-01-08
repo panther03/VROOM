@@ -1,0 +1,21 @@
+#INCLUDE "<inc>/Util.hjk"
+
+#DEFINE IO_SERIAL_CMD 0xF8000040
+#DEFINE IO_SERIAL_DATA 0xF8000044
+
+FN TestMain () : UWORD
+    dataport := CAST IO_SERIAL_DATA TO ^UBYTE
+
+    dataport ^= 'H'
+    BARRIER
+    dataport ^= 'e'
+    BARRIER
+    dataport ^= 'l'
+    BARRIER
+    dataport ^= 'l'
+    BARRIER
+    dataport ^= 'o'
+    BARRIER
+
+    RETURN 0
+END

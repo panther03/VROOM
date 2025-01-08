@@ -43,7 +43,7 @@ endinterface
 /////////////////////
 // Implementation //
 ///////////////////
-typedef enum {L1I, L1D, IUNC, DUNC} BusAccOrigin deriving (FShow, Bits, Eq);
+typedef enum {L1I, L1D} BusAccOrigin deriving (FShow, Bits, Eq);
 
 typedef struct {
     BusAccOrigin origin;
@@ -174,43 +174,15 @@ module mkVROOM (VROOMIfc);
 
     function Action putIMemReq(IMemReq r);
     action
-        // Not using paging and in upper 3GB
-        if (!crs.getCurrMode().m && r.addr[29:28] == 2'b11) begin
-            toBus.enq(BusReq {
-                byte_strobe: 4'h0,
-                line_en: 0,
-                addr: r.addr,
-                data: ?
-            });
-            busTracker.enq(BusBusiness {
-                origin: IUNC,
-                addr_low: {r.addr[3:2], 2'b00}
-            });
-        end else begin
-            iCache.putFromProc(r);
-        end
+        // 2nd arg: Not using paging and in upper 3GB
+        iCache.putFromProc(r, !crs.getCurrMode().m && r.addr[29:28] == 2'b11);
     endaction
     endfunction
 
     rule handleDMemReqs;
+        // 2nd arg: Not using paging and in upper 3GB
         let r = dmemReqs.first; dmemReqs.deq();
-        // Not using paging and in upper 3GB
-        if (!crs.getCurrMode().m && r.addr[29:28] == 2'b11) begin
-            toBus.enq(BusReq {
-                byte_strobe: r.word_byte,
-                line_en: 0,
-                addr: r.addr,
-                data: {480'h0, r.data}
-            });
-            if (r.word_byte == 0) begin
-                busTracker.enq(BusBusiness {
-                    origin: DUNC,
-                    addr_low: {r.addr[3:0]}
-                });
-            end
-        end else begin
-            dCache.putFromProc(r);
-        end
+        dCache.putFromProc(r, !crs.getCurrMode().m && r.addr[29:28] == 2'b11);
     endrule
 
     function Action putDMemReq(DMemReq r);
@@ -241,14 +213,6 @@ module mkVROOM (VROOMIfc);
         case (busBusiness.origin)
             L1I: iCache.putFromMem(busResp);
             L1D: dCache.putFromMem(busResp);
-            IUNC: begin
-                Vector#(16, Word) iMemResps = unpack(busResp);
-                fromImem.enq({32'hABABABAB, 32'h0, 32'hCCCCCCCC, iMemResps[15]});
-            end
-            DUNC: begin
-                Vector#(16, DMemResp) dMemResps = unpack(busResp);
-                fromDmem.enq(dMemResps[15]);
-            end
         endcase
     endrule
 
