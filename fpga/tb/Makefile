@@ -83,8 +83,8 @@ run:
 	@echo "-- RUN ---------------------"
 	@rm -rf logs
 	@mkdir -p logs
-	obj_dir/V$(TOP) +trace +a4x
-
+	obj_dir/V$(TOP) +a4x +trace
+ 
 	@echo
 	@echo "-- DONE --------------------"
 	@echo "To see waveforms, open vlt_dump.vcd in a waveform viewer"

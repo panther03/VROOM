@@ -177,3 +177,5 @@ module LSIC (
     assign badAddrAck = badAddrAck_r;
 
 endmodule
+
+`default_nettype wire

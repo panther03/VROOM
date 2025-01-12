@@ -1,4 +1,4 @@
-module spart
+module spart2
 (
     input clk,				      // 50MHz clk
     input rst_n,			      // asynch active low reset
@@ -56,15 +56,16 @@ module spart
 
     // Flip Flop to store baud rate
     logic [12:0]DB;
-    always_ff @(posedge clk,negedge rst_n)
+    always_ff @(posedge clk,negedge rst_n) begin 
     if (!rst_n) 
         // configured for a 50mhz clock
-        DB <= 13'h01B2;
+        DB <= 13'h1B2;
     //else if (divbuffer_reg_write) begin // Write low bit
     //    DB <= bus_addrData_i[12:0];
     //end 
     else
         DB <= DB;
+    end
 
     reg tx_enq_rw;
     reg tx_enq_r;

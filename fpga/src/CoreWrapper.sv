@@ -147,7 +147,7 @@ module CoreWrapper #(
 	wire uart_s_writeresponsevalid;
 	wire uart_all_done;
 
-	spart iSPART (
+	spart2 iSPART (
 		.clk(clk),
 		.rst_n(~rst),
 		.s_waitrequest(uart_s_waitrequest),
@@ -174,7 +174,7 @@ module CoreWrapper #(
 	wire simdebug_s_readdatavalid;
 	wire [1:0] simdebug_s_response;
 	wire simdebug_s_writeresponsevalid;
-	wire simdebug_addr_check = 0;
+	wire simdebug_addr_check;
 	generate if (SIMULATION) begin
 		assign simdebug_addr_check = (av_address[31:28] == 4'hE) && ($test$plusargs("a4x") == 0);
 
@@ -195,7 +195,7 @@ module CoreWrapper #(
 			.s_response(simdebug_s_response)
 		);
 	end else begin
-		assign simdebug_addr_check = 1'b1;
+		assign simdebug_addr_check = 1'b0;
 		// This is just there to make the compiler happy. 
 		// A write/read to this address will deadlock the system due to lack of response!
 		assign simdebug_s_waitrequest = 0;

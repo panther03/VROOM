@@ -220,7 +220,7 @@
   <parameter name="initMemContent" value="true" />
   <parameter name="initializationFileName">/home/julien/work/VROOM/fpga/proj/storeypeak/rom.mif</parameter>
   <parameter name="instanceID" value="NONE" />
-  <parameter name="memorySize" value="32768" />
+  <parameter name="memorySize" value="131072" />
   <parameter name="readDuringWriteMode" value="DONT_CARE" />
   <parameter name="resetrequest_enabled" value="true" />
   <parameter name="simAllowMRAMContentsFile" value="false" />
@@ -233,7 +233,7 @@
   <parameter name="writable" value="false" />
  </module>
  <module name="VROOM_0" kind="VROOM" version="1.0" enabled="1">
-  <parameter name="SIMULATION" value="true" />
+  <parameter name="SIMULATION" value="false" />
  </module>
  <module name="clk_0" kind="clock_source" version="23.1" enabled="1">
   <parameter name="clockFrequency" value="50000000" />

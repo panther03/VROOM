@@ -25,7 +25,7 @@ module tb_harness ( input wire clk, input wire rst );
     wire uart_rx;
 
     CoreWrapper #(
-        .SIMULATION(1)   
+        .SIMULATION(0)   
     )iCORE(
         .clk(clk), 
         .rst(rst),
@@ -107,7 +107,7 @@ module tb_harness ( input wire clk, input wire rst );
     ///////////////////////////
     uartdpi #(
         .BAUD(115200),
-        .FREQ(50_000_000)
+        .FREQ(25_000_000)
     ) iUART (
         .clk_i(clk),
         .rst_ni(~rst),
@@ -129,7 +129,7 @@ initial begin
     if ($test$plusargs("trace") != 0) begin
         $display("[%0t] Tracing to logs/vlt_dump.vcd...\n", $time);
         $dumpfile("logs/vlt_dump.vcd");
-        $dumpvars();
+        $dumpvars(0, tb_harness);
     end
 end
 endmodule
