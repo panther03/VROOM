@@ -248,6 +248,7 @@ module CpuBusMaster (
 	wire read_handshake_w = (m_axi_rvalid && m_axi_rready_r);
 	wire write_handshake_w = (m_axi_wvalid_r && m_axi_wready);
 	wire beat_handshake_w = read_handshake_w || write_handshake_w;
+	wire [31:0] read_error_mask_w = {32{~m_axi_rresp[1]}};
 
 	always @(*) begin
 		state_rw = state_r;
@@ -270,11 +271,13 @@ module CpuBusMaster (
 
 		// Has the LSIC acknowledged our bus error? Reset it.
 		// Otherwise we listen for any errors (bus_m_response != 0) and use that as an enable signal.
-		badAddrValid_rw = lsic_badAddrAck ? 1'h0 : (badAddrValid_r | 
+		// TODO: actually implement this; policy for now is to treat all responses as 0
+		badAddrValid_rw = 1'b0; 
+		/*lsic_badAddrAck ? 1'h0 : (badAddrValid_r | 
 		((read_handshake_w && m_axi_rresp[1]) | 
-		(m_axi_bvalid && m_axi_bready_r && m_axi_bresp[1])));
+		(m_axi_bvalid && m_axi_bready_r && m_axi_bresp[1])));*/
 
-		data_rw = beat_handshake_w ? {m_axi_rdata, data_r[511:32]} : data_r;
+		data_rw = beat_handshake_w ? {m_axi_rdata & read_error_mask_w, data_r[511:32]} : data_r;
 
 		case (state_r)
 			IDLE: begin

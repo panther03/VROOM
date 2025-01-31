@@ -49,6 +49,7 @@ reg s_axi_awready_r, s_axi_awready_rw;
 reg s_axi_arready_r, s_axi_arready_rw;
 reg s_axi_wready_r, s_axi_wready_rw;
 reg s_axi_rvalid_r, s_axi_rvalid_rw;
+reg [1:0] s_axi_rresp_r, s_axi_rresp_rw;
 reg s_axi_bvalid_r, s_axi_bvalid_rw;
 
 reg [31:0] s_axi_rdata_r, s_axi_rdata_rw;
@@ -69,7 +70,9 @@ always_ff @(posedge clk_i) begin
         s_axi_arready_r <= 0;
         s_axi_wready_r <= 0;
         s_axi_rvalid_r <= 0;
+        s_axi_rresp_r <= 0;
         s_axi_bvalid_r <= 0;
+        s_axi_rdata_r <= 0;
     end else begin
         state_r <= state_rw;
         rd_n_wr_r <= rd_n_wr_rw;
@@ -81,7 +84,9 @@ always_ff @(posedge clk_i) begin
         s_axi_arready_r <= s_axi_arready_rw;
         s_axi_wready_r <= s_axi_wready_rw;
         s_axi_rvalid_r <= s_axi_rvalid_rw;
+        s_axi_rresp_r <= s_axi_rresp_rw;
         s_axi_bvalid_r <= s_axi_bvalid_rw;
+        s_axi_rdata_r <= s_axi_rdata_rw;
     end
 end
 
@@ -103,6 +108,7 @@ always_comb begin
     s_axi_wready_rw = s_axi_wready_r;
     s_axi_rvalid_rw = s_axi_rvalid_r;
     s_axi_bvalid_rw = s_axi_bvalid_r;
+    s_axi_rresp_rw = {2{~bus_citron_match}};
 
     case (state_r) 
         READY: begin
@@ -222,6 +228,6 @@ assign s_axi_bresp = 2'b00;
 assign s_axi_rlast = 1'b1; // does not do bursts
 assign s_axi_rvalid = s_axi_rvalid_r;
 assign s_axi_rdata = s_axi_rdata_r;
-assign s_axi_rresp = 2'b00;
+assign s_axi_rresp = s_axi_rresp_r;
 
 endmodule

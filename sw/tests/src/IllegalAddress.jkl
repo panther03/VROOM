@@ -1,14 +1,19 @@
 #INCLUDE "<inc>/Util.hjk"
 
-BadAddr : ^UBYTE = CAST 0xF8000064 TO ^UBYTE
+CitronBadAddr : ^UBYTE = CAST 0xF8000064 TO ^UBYTE
+OutsideBadAddr : ^UBYTE = CAST 0xC0000000 TO ^UBYTE
 
 FN TestMain () : UWORD
-    BadAddr^ = 0x39
+    CitronBadAddr^ = 0x39
     BARRIER
     SimPutc('!')
-    SimPutc(BadAddr^ + 0x30)
+    SimPutc(CitronBadAddr^ + 0x30)
+    OutsideBadAddr^ = 0x39
     BARRIER
-    BadAddr^ = 0x69
+    SimPutc('?')
+    SimPutc(OutsideBadAddr^ + 0x30)
+    BARRIER
+    CitronBadAddr^ = 0x69
 
     RETURN 0
 END
