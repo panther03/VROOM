@@ -99,11 +99,11 @@ module mkSim(Empty);
             //$fdisplay(stderr, "Unrecognized MMIO read: %08x", addr32);
         end else begin
             // putchar() OR serial on citron bus
-            if (addr32 == 32'he000_fff0 || addr32 == 32'hf800_0044) begin
+            if (addr32 == 32'hf800_03fc || addr32 == 32'hf800_0044) begin
                 $fwrite(stderr, "%c", req.data[31:24]);
                 $fflush(stderr);
             // exit()
-            end else if (addr32 == 32'he000_fff8) begin
+            end else if (addr32 == 32'hf800_03f8) begin
                 $display("RAN CYCLES", cycle_count);
                 if (req.data == 0) begin
                     $fdisplay(stderr, "  [0;32mPASS first thread [0m");

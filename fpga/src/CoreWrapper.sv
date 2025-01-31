@@ -5,30 +5,42 @@ module CoreWrapper #(
 )(
 	input  wire clk,
 	input  wire rst,
-	input  wire [63:0] irqs,
-	input  wire 	   av_waitrequest,
-	input  wire [31:0] av_readdata,
-	input  wire 	   av_readdatavalid,
-	input  wire [ 1:0] av_response,
-	input  wire        av_writeresponsevalid,
-	output wire [ 4:0] av_burstcount,
-	output wire [31:0] av_writedata,
-	output wire [31:0] av_address,
-	output wire        av_write,
-	output wire 	   av_read,
-	output wire [ 3:0] av_byteenable,
-	output wire 	   uart_tx,
-	input  wire 	   uart_rx
-);
-	reg bus_waitrequest_local;
-	reg [31:0] bus_readdata_local;
-	reg bus_readdatavalid_local;
-	reg [1:0] bus_response_local;
-	reg bus_writeresponsevalid_local;
+	input  wire cpu_irq,
+	input  wire cpu_buserror,
 
-	wire [31:0] lsic_badAddr;
-	wire lsic_badAddrAck;
-	wire lsic_badAddrValid;
+	output wire [31:0] lsic_badAddr,
+	output wire        lsic_badAddrValid,
+	input  wire        lsic_badAddrAck,
+
+	output wire        m_axi_awvalid,
+	input  wire        m_axi_awready,
+	output wire [31:0] m_axi_awaddr,
+	output wire [ 7:0] m_axi_awlen,
+	output wire [ 2:0] m_axi_awsize,
+	output wire [ 1:0] m_axi_awburst,
+
+	output wire 	   m_axi_wvalid,
+	input  wire        m_axi_wready,
+	output wire 	   m_axi_wlast,
+	output wire [31:0] m_axi_wdata,
+	output wire [ 3:0] m_axi_wstrb,
+
+	input  wire  	   m_axi_bvalid,
+	output wire        m_axi_bready,
+	input wire  [ 1:0] m_axi_bresp,
+
+	output wire        m_axi_arvalid,
+	input  wire        m_axi_arready,
+	output wire [31:0] m_axi_araddr,
+	output wire [ 7:0] m_axi_arlen,
+	output wire [ 2:0] m_axi_arsize,
+	output wire [ 1:0] m_axi_arburst,
+
+	input  wire 	   m_axi_rvalid,
+	output wire        m_axi_rready,
+	input  wire [31:0] m_axi_rdata,
+	input  wire [ 1:0] m_axi_rresp
+);
 
 	///////////////////
 	// Bluespec CPU //
@@ -43,9 +55,6 @@ module CoreWrapper #(
 	wire [511:0] respData;
 	wire 		 respValid;
 	wire 		 respReady;
-
-	wire cpu_buserror;
-	wire cpu_irq;
 
 	mkVROOM iCORE (
 		.CLK(clk),
@@ -64,12 +73,6 @@ module CoreWrapper #(
 	/////////////////////
 	// CPU bus master //
 	///////////////////
-	wire [29:0] cpu_address;
-	wire cpu_write;
-	wire cpu_read;
-	wire [31:0] cpu_writedata;
-	wire [4:0] cpu_burstcount;
-	wire [3:0] cpu_byteenable;
 
 	CpuBusMaster iCPU_MASTER (
 		.clk(clk),
@@ -86,155 +89,32 @@ module CoreWrapper #(
 		.lsic_badAddr(lsic_badAddr),
 		.lsic_badAddrValid(lsic_badAddrValid),
 		.lsic_badAddrAck(lsic_badAddrAck),
-		.bus_m_waitrequest(bus_waitrequest_local),
-		.bus_m_readdata(bus_readdata_local),
-		.bus_m_readdatavalid(bus_readdatavalid_local),
-		.bus_m_writeresponsevalid(bus_writeresponsevalid_local),
-		.bus_m_response(bus_response_local),
-		.bus_m_burstcount(cpu_burstcount),
-		.bus_m_writedata(cpu_writedata),
-		.bus_m_address(cpu_address),
-		.bus_m_write(cpu_write),
-		.bus_m_read(cpu_read),
-		.bus_m_byteenable(cpu_byteenable)
+		.m_axi_awvalid(m_axi_awvalid),
+		.m_axi_awready(m_axi_awready),
+		.m_axi_awaddr(m_axi_awaddr),
+		.m_axi_awlen(m_axi_awlen),
+		.m_axi_awsize(m_axi_awsize),
+		.m_axi_awburst(m_axi_awburst),
+		.m_axi_wvalid(m_axi_wvalid),
+		.m_axi_wlast(m_axi_wlast),
+		.m_axi_wready(m_axi_wready),
+		.m_axi_wdata(m_axi_wdata),
+		.m_axi_wstrb(m_axi_wstrb),
+		.m_axi_bvalid(m_axi_bvalid),
+		.m_axi_bready(m_axi_bready),
+		.m_axi_bresp(m_axi_bresp),
+		.m_axi_arvalid(m_axi_arvalid),
+		.m_axi_arready(m_axi_arready),
+		.m_axi_araddr(m_axi_araddr),
+		.m_axi_arlen(m_axi_arlen),
+		.m_axi_arsize(m_axi_arsize),
+		.m_axi_arburst(m_axi_arburst),
+		.m_axi_rvalid(m_axi_rvalid),
+		.m_axi_rready(m_axi_rready),
+		.m_axi_rdata(m_axi_rdata),
+		.m_axi_rresp(m_axi_rresp)
 	);
 
-	assign av_address = {cpu_address, 2'h0};
-	assign av_writedata = cpu_writedata;
-	assign av_write = cpu_write;
-	assign av_read = cpu_read;
-	assign av_byteenable = cpu_byteenable;
-	assign av_burstcount = cpu_burstcount;
-
-	/////////////////
-	// LSIC slave //
-	///////////////
-	wire lsic_s_waitrequest;
-	wire [31:0] lsic_s_readdata;
-	wire lsic_s_readdatavalid;
-	wire [1:0] lsic_s_response;
-	wire lsic_s_writeresponsevalid;
-
-	LSIC iLSIC (
-		.clk(clk),
-		.rst_n(~rst),
-		.irqs(irqs),
-		.badAddr(lsic_badAddr),
-		.badAddrValid(lsic_badAddrValid),
-		.badAddrAck(lsic_badAddrAck),
-		.cpu_irq(cpu_irq),
-		.cpu_buserror(cpu_buserror),
-		.s_waitrequest(lsic_s_waitrequest),
-		.s_readdata(lsic_s_readdata),
-		.s_readdatavalid(lsic_s_readdatavalid),
-		.s_response(lsic_s_response),
-		.s_writeresponsevalid(lsic_s_writeresponsevalid),
-		.bus_burstcount(cpu_burstcount),
-		.bus_writedata(cpu_writedata),
-		.bus_address(cpu_address),
-		.bus_write(cpu_write),
-		.bus_read(cpu_read),
-		.bus_byteenable(cpu_byteenable)
-	);
-
-	/////////////////
-	// UART slave //
-	///////////////
-	wire uart_s_waitrequest;
-	wire [31:0] uart_s_readdata;
-	wire uart_s_readdatavalid;
-	wire [1:0] uart_s_response;
-	wire uart_s_writeresponsevalid;
-	wire uart_all_done;
-
-	spart2 iSPART (
-		.clk(clk),
-		.rst_n(~rst),
-		.s_waitrequest(uart_s_waitrequest),
-		.s_readdata(uart_s_readdata),
-		.s_readdatavalid(uart_s_readdatavalid),
-		.s_response(uart_s_response),
-		.s_writeresponsevalid(uart_s_writeresponsevalid),
-		.bus_burstcount(cpu_burstcount),
-		.bus_writedata(cpu_writedata),
-		.bus_address(cpu_address),
-		.bus_write(cpu_write),
-		.bus_read(cpu_read),
-		.bus_byteenable(cpu_byteenable),
-		.TX(uart_tx),
-		.RX(uart_rx),
-		.all_done(uart_all_done)
-	);
-
-	//////////////////////////////////
-	// Simulation print/exit slave //
-	////////////////////////////////
-	wire simdebug_s_waitrequest;
-	wire [31:0] simdebug_s_readdata;
-	wire simdebug_s_readdatavalid;
-	wire [1:0] simdebug_s_response;
-	wire simdebug_s_writeresponsevalid;
-	wire simdebug_addr_check;
-	generate if (SIMULATION) begin
-		assign simdebug_addr_check = (av_address[31:28] == 4'hE) && ($test$plusargs("a4x") == 0);
-
-		SimDebugSlave iDEBUG (
-			.clk_i(clk),
-			.rst_i(rst),
-			.uart_all_done(uart_all_done),
-			.bus_burstcount(cpu_burstcount),
-			.bus_writedata(cpu_writedata),
-			.bus_address(av_address),
-			.bus_write(cpu_write),
-			.bus_read(cpu_read),
-			.bus_byteenable(cpu_byteenable),
-			.s_readdata(simdebug_s_readdata),
-			.s_readdatavalid(simdebug_s_readdatavalid),
-			.s_waitrequest(simdebug_s_waitrequest),
-			.s_writeresponsevalid(simdebug_s_writeresponsevalid),
-			.s_response(simdebug_s_response)
-		);
-	end else begin
-		assign simdebug_addr_check = 1'b0;
-		// This is just there to make the compiler happy. 
-		// A write/read to this address will deadlock the system due to lack of response!
-		assign simdebug_s_waitrequest = 0;
-		assign simdebug_s_readdata = 0;
-		assign simdebug_s_readdatavalid = 0;
-		assign simdebug_s_response = 0;
-		assign simdebug_s_writeresponsevalid = 0;
-	end endgenerate
-	
-	//////////////////////////
-	// Connect bus signals //
-	////////////////////////
-
-	wire no_match_w = 
-		av_address[31:15] != 17'h0 	// DRAM
-		&& av_address[31:5] != {24'hf80300, 3'h0}
-		&& av_address[31:16] != {16'hFFFE} // ROM
-		&& av_address[31:10] != {20'hF8000, 2'b00} // Citron
-		&& !simdebug_addr_check;
-	reg no_match_r;
-
-	always @(posedge clk)
-		no_match_r <= no_match_w;
-
-	always @* begin
-		if (no_match_w) begin
-			bus_waitrequest_local = 1'b0;
-			bus_readdata_local = 0;
-			bus_readdatavalid_local = 1'b1;
-			bus_writeresponsevalid_local = 1'b1;
-			bus_response_local = 2'b00;
-		end else begin
-			bus_waitrequest_local = lsic_s_waitrequest | av_waitrequest | simdebug_s_waitrequest | uart_s_waitrequest;
-			bus_readdata_local = lsic_s_readdata | av_readdata | simdebug_s_readdata | uart_s_readdata;
-			bus_readdatavalid_local = lsic_s_readdatavalid | av_readdatavalid | simdebug_s_readdatavalid | uart_s_readdatavalid;
-			bus_response_local = lsic_s_response | av_response | simdebug_s_response | uart_s_response;
-			bus_writeresponsevalid_local = lsic_s_writeresponsevalid | av_writeresponsevalid | simdebug_s_writeresponsevalid | uart_s_writeresponsevalid;
-		end
-	end	
 endmodule
 
 module CpuBusMaster (
@@ -256,25 +136,58 @@ module CpuBusMaster (
 	output wire        lsic_badAddrValid,
 	input  wire        lsic_badAddrAck,
 
-	input  wire 	   bus_m_waitrequest,
-	input  wire [31:0] bus_m_readdata,
-	input  wire 	   bus_m_readdatavalid,
-	input  wire [ 1:0] bus_m_response,
-	input  wire        bus_m_writeresponsevalid,
-	output wire [ 4:0] bus_m_burstcount,
-	output wire [31:0] bus_m_writedata,
-	output wire [29:0] bus_m_address,
-	output wire 	   bus_m_write,
-	output wire 	   bus_m_read,
-	output wire [3:0]  bus_m_byteenable
+	output wire        m_axi_awvalid,
+	input  wire        m_axi_awready,
+	output wire [31:0] m_axi_awaddr,
+	output wire [ 7:0] m_axi_awlen,
+	output wire [ 2:0] m_axi_awsize,
+	output wire [ 1:0] m_axi_awburst,
+
+	output wire 	   m_axi_wvalid,
+	input  wire        m_axi_wready,
+	output wire        m_axi_wlast,
+	output wire [31:0] m_axi_wdata,
+	output wire [ 3:0] m_axi_wstrb,
+
+	input  wire  	   m_axi_bvalid,
+	output wire        m_axi_bready,
+	input wire  [ 1:0] m_axi_bresp,
+
+	output wire        m_axi_arvalid,
+	input  wire        m_axi_arready,
+	output wire [31:0] m_axi_araddr,
+	output wire [ 7:0] m_axi_arlen,
+	output wire [ 2:0] m_axi_arsize,
+	output wire [ 1:0] m_axi_arburst,
+
+	input  wire 	   m_axi_rvalid,
+	output wire        m_axi_rready,
+	input  wire [31:0] m_axi_rdata,
+	input  wire [ 1:0] m_axi_rresp
+
+	//input  wire 	   bus_m_waitrequest,
+	//input  wire [31:0] bus_m_readdata,
+	//input  wire 	   bus_m_readdatavalid,
+	//input  wire [ 1:0] bus_m_response,
+	//input  wire        bus_m_writeresponsevalid,
+	//output wire [ 4:0] bus_m_burstcount,
+	//output wire [31:0] bus_m_writedata,
+	//output wire [29:0] bus_m_address,
+	//output wire 	   bus_m_write,
+	//output wire 	   bus_m_read,
+	//output wire [3:0]  bus_m_byteenable
 );
 
-	localparam [1:0] IDLE       = 2'h0;
-	localparam [1:0] TRX   		= 2'h2;
-	localparam [1:0] READ_RESP  = 2'h3;
+	localparam [2:0] IDLE       = 3'h0;
+	localparam [2:0] RADDR      = 3'h1;
+	localparam [2:0] WADDR      = 3'h2;
+	localparam [2:0] RDATA      = 3'h3;
+	localparam [2:0] WDATA      = 3'h4;
+	localparam [2:0] RRESP      = 3'h5;
+	localparam [2:0] WRESP      = 3'h6;
 
-	reg [1:0] state_r;
-	reg [1:0] state_rw;
+	reg [2:0] state_r;
+	reg [2:0] state_rw;
 
 	reg [511:0] data_r;
 	reg [511:0] data_rw;
@@ -286,26 +199,32 @@ module CpuBusMaster (
 	reg respValid_rw;
 	reg respValid_r;
 
-	reg first_beat_r;
-	reg first_beat_rw;
-
 	reg badAddrValid_r;
 	reg badAddrValid_rw;
 
 	reg [4:0] outstanding_responses_r;
 	reg [4:0] outstanding_responses_rw;
 
-	reg [4:0] bus_m_burstcount_r;
-	reg [29:0] bus_m_address_r;
-	reg bus_m_write_r;
-	reg bus_m_read_r;
-	reg [3:0] bus_m_byteenable_r;
+	reg        m_axi_awvalid_r;
+	reg        m_axi_awvalid_rw;
+	reg        m_axi_arvalid_r;
+	reg        m_axi_arvalid_rw;
+	reg [31:0] m_axi_aaddr_r;
+	reg [31:0] m_axi_aaddr_rw;
+	reg [ 7:0] m_axi_alen_r;
+	reg [ 7:0] m_axi_alen_rw;
 
-	reg [4:0] bus_m_burstcount_rw;
-	reg [29:0] bus_m_address_rw;
-	reg bus_m_write_rw;
-	reg bus_m_read_rw;
-	reg [3:0] bus_m_byteenable_rw;
+	reg 	   m_axi_wvalid_r;
+	reg 	   m_axi_wvalid_rw;
+	reg 	   m_axi_wlast_r;
+	reg 	   m_axi_wlast_rw;
+	reg [ 3:0] m_axi_wstrb_r;
+	reg [ 3:0] m_axi_wstrb_rw;
+
+	reg m_axi_bready_r;
+	reg m_axi_bready_rw;
+	reg m_axi_rready_r;
+	reg m_axi_rready_rw;
 
 	always @(posedge clk) begin
 		if (!rst_n) begin
@@ -313,22 +232,22 @@ module CpuBusMaster (
 			data_r <= 0;
 			cpu_reqWe_r <= 0;
 			respValid_r <= 0;
-			first_beat_r <= 0;
 			badAddrValid_r <= 0;
-			outstanding_responses_r <= 0;
 		end else begin
 			state_r <= state_rw;
 			data_r <= data_rw;
 			cpu_reqWe_r <= cpu_reqWe_rw;
 			respValid_r <= respValid_rw;
-			first_beat_r <= first_beat_rw;
 			badAddrValid_r <= badAddrValid_rw;
-			outstanding_responses_r <= outstanding_responses_rw;
 		end
 	end
 
 	wire cpu_reqWe_w;
 	assign cpu_reqWe_w = |cpu_reqByteStrobe;
+
+	wire read_handshake_w = (m_axi_rvalid && m_axi_rready_r);
+	wire write_handshake_w = (m_axi_wvalid_r && m_axi_wready);
+	wire beat_handshake_w = read_handshake_w || write_handshake_w;
 
 	always @(*) begin
 		state_rw = state_r;
@@ -336,82 +255,117 @@ module CpuBusMaster (
 		cpu_reqWe_rw = cpu_reqWe_r;
 		respValid_rw = 0;
 		reqReady_rw = 0;
-		
-		bus_m_burstcount_rw = 0;
-		bus_m_write_rw = 0;
-		bus_m_read_rw = 0;
-		bus_m_address_rw = bus_m_address_r;
-		bus_m_byteenable_rw = bus_m_byteenable_r;
 
-		first_beat_rw = first_beat_r;
-		// Count nmuber of responses remaining.
-		// Response strobe = writeresponsevalid on write, readdatavalid on read.
-		outstanding_responses_rw = |outstanding_responses_r ? 
-			(outstanding_responses_r - (cpu_reqWe_r ? {4'h0, bus_m_writeresponsevalid} : {4'h0,bus_m_readdatavalid}))
-			: 5'h0;
+		m_axi_awvalid_rw = m_axi_awvalid_r;
+		m_axi_arvalid_rw = m_axi_arvalid_r;
+		m_axi_aaddr_rw = m_axi_aaddr_r;
+		m_axi_alen_rw = beat_handshake_w ? (m_axi_alen_r - 1) : m_axi_alen_r;
+
+		m_axi_wvalid_rw = m_axi_wvalid_r;
+		m_axi_wstrb_rw = m_axi_wstrb_r;
+		m_axi_wlast_rw = m_axi_wlast_r;
+
+		m_axi_bready_rw = m_axi_bready_r;
+		m_axi_rready_rw = m_axi_rready_r;
+
 		// Has the LSIC acknowledged our bus error? Reset it.
 		// Otherwise we listen for any errors (bus_m_response != 0) and use that as an enable signal.
-		badAddrValid_rw = lsic_badAddrAck ? 1'h0 : (badAddrValid_r | ((cpu_reqWe_r ? bus_m_writeresponsevalid : bus_m_readdatavalid) & |bus_m_response));
+		badAddrValid_rw = lsic_badAddrAck ? 1'h0 : (badAddrValid_r | 
+		((read_handshake_w && m_axi_rresp[1]) | 
+		(m_axi_bvalid && m_axi_bready_r && m_axi_bresp[1])));
+
+		data_rw = beat_handshake_w ? {m_axi_rdata, data_r[511:32]} : data_r;
 
 		case (state_r)
 			IDLE: begin
 				// 1. There is a request from the CPU
-				// 2. We are not waiting on any responses from the previous transaction
-				// 3. Any errors in the previous transaction have been acknowledged by the LSIC.
-				if (cpu_reqValid & ~|outstanding_responses_r & ~badAddrValid_r) begin
+				// 2. Any errors in the previous transaction have been acknowledged by the LSIC.
+				if (cpu_reqValid & ~badAddrValid_r) begin
 					reqReady_rw = 1;
 					data_rw = cpu_reqData;
-					bus_m_address_rw = cpu_reqAddr;
-					bus_m_byteenable_rw = ~cpu_reqWe_w ? 4'hF : cpu_reqByteStrobe;
-					bus_m_burstcount_rw = cpu_reqLineEn ? 5'h10 : 5'h1;
-					outstanding_responses_rw = cpu_reqWe_w ? 5'h1 : bus_m_burstcount_rw;
-					bus_m_read_rw = ~cpu_reqWe_w;	
-					bus_m_write_rw = cpu_reqWe_w;
 					cpu_reqWe_rw = cpu_reqWe_w;
-					state_rw = TRX;
-					first_beat_rw = 1;
+					m_axi_alen_rw = cpu_reqLineEn ? 8'hF : 8'h0;
+					m_axi_aaddr_rw = {cpu_reqAddr, 2'h0};
+					m_axi_awvalid_rw = cpu_reqWe_w;
+					m_axi_arvalid_rw = ~cpu_reqWe_w;
+					m_axi_wstrb_rw = cpu_reqByteStrobe;
+					state_rw = cpu_reqWe_w ? WADDR : RADDR;
 				end
 			end
-			TRX: begin
-				// The first transaction starts whenever waitrequest is deasserted.
-				if (!bus_m_waitrequest) first_beat_rw = 0;
-				// If
-				// 1) we are writing and waitrequest is not asserted
-				// 2) we are reading, the data is valid, and we have successfully made the first handshake (waitrequest was low; can be in the same cycle)
-				// then we may move to the next beat.
-				if (cpu_reqWe_r ? (!bus_m_waitrequest) : (bus_m_readdatavalid & !first_beat_rw)) begin
-					data_rw = {bus_m_readdata, data_r[511:32]};
-					bus_m_burstcount_rw = bus_m_burstcount_r - 1;
+			RADDR: begin
+				if (m_axi_arvalid_r && m_axi_arready) begin
+					m_axi_arvalid_rw = 1'b0;
+					m_axi_rready_rw = 1'b1;
+					state_rw = RDATA;
 				end else begin
-					bus_m_burstcount_rw = bus_m_burstcount_r;
+					state_rw = RADDR;
 				end
-				// If there are no more bursts we are done.
-				state_rw = |bus_m_burstcount_rw ? TRX : (cpu_reqWe_r ? IDLE : READ_RESP);
-				// Read needs to go as it means we are making a request. Should stop after 1st handshake.
-				bus_m_read_rw = first_beat_rw & bus_m_read_r;
-				// Write on the other hand acts as a strobe signal for writedata. So we should keep it high until the last burst.
-				bus_m_write_rw = |bus_m_burstcount_rw & bus_m_write_r;
 			end
-			READ_RESP: begin
+			RDATA: begin
+				if (read_handshake_w && (m_axi_alen_r == 0)) begin
+					m_axi_rready_rw = 1'b0;
+					state_rw = RRESP;
+				end else begin
+					state_rw = RDATA;
+				end
+			end
+			RRESP: begin
 				respValid_rw = cpu_respReady;
-				state_rw = cpu_respReady ? IDLE : READ_RESP;
+				state_rw = cpu_respReady ? IDLE : RRESP;
+			end
+			WADDR: begin
+				if (m_axi_awvalid_r && m_axi_awready) begin
+					m_axi_awvalid_rw = 1'b0;
+					m_axi_wvalid_rw = 1'b1;
+					m_axi_wlast_rw = (m_axi_alen_r == 0);
+					state_rw = WDATA;
+				end else begin
+					state_rw = WADDR;
+				end
+			end
+			WDATA: begin
+				m_axi_wlast_rw = write_handshake_w && (m_axi_alen_r == 1);
+				if (write_handshake_w && (m_axi_alen_r == 0)) begin
+					m_axi_wvalid_rw = 1'b0;
+					m_axi_wlast_rw = 1'b0;
+					m_axi_bready_rw = 1'b1;
+					state_rw = WRESP;
+				end else begin
+					state_rw = WDATA;
+				end
+			end
+			WRESP: begin
+				if (m_axi_bready_r && m_axi_bvalid) begin
+					m_axi_bready_rw = 1'b0;
+					state_rw = IDLE;
+				end else begin
+					state_rw = WRESP;
+				end
 			end
 		endcase
 	end
 
 	always @(posedge clk) begin
 		if (!rst_n) begin
-			bus_m_burstcount_r <= 0;
-			bus_m_address_r <= 0;
-			bus_m_write_r <= 0;
-			bus_m_read_r <= 0;
-			bus_m_byteenable_r <= 0;
+			m_axi_awvalid_r <= 0;
+			m_axi_arvalid_r <= 0;
+			m_axi_aaddr_r <= 0;
+			m_axi_alen_r <= 0;
+			m_axi_wvalid_r <= 0;
+			m_axi_wlast_r <= 0;
+			m_axi_wstrb_r <= 0;
+			m_axi_bready_r <= 0;
+			m_axi_rready_r <= 0;
 		end else begin
-			bus_m_burstcount_r <= bus_m_burstcount_rw;
-			bus_m_address_r <= bus_m_address_rw;
-			bus_m_write_r <= bus_m_write_rw;
-			bus_m_read_r <= bus_m_read_rw;
-			bus_m_byteenable_r <= bus_m_byteenable_rw;
+			m_axi_awvalid_r <= m_axi_awvalid_rw;
+			m_axi_arvalid_r <= m_axi_arvalid_rw;
+			m_axi_aaddr_r <= m_axi_aaddr_rw;
+			m_axi_alen_r <= m_axi_alen_rw;
+			m_axi_wvalid_r <= m_axi_wvalid_rw;
+			m_axi_wlast_r <= m_axi_wlast_rw;
+			m_axi_wstrb_r <= m_axi_wstrb_rw;
+			m_axi_bready_r <= m_axi_bready_rw;
+			m_axi_rready_r <= m_axi_rready_rw;
 		end
 	end
 
@@ -422,17 +376,29 @@ module CpuBusMaster (
 	assign cpu_respData = data_r;
 	assign cpu_respValid = respValid_rw;
 
-	assign lsic_badAddr = {bus_m_address_r, 2'h0};
+	assign lsic_badAddr = m_axi_aaddr_r;
 	assign lsic_badAddrValid = badAddrValid_r;
 
-	// probably starts from other end?
-	assign bus_m_writedata = data_r[31:0];
-	assign bus_m_burstcount = bus_m_burstcount_r;
-	assign bus_m_address = bus_m_address_r;
-	assign bus_m_write = bus_m_write_r;
-	assign bus_m_read = bus_m_read_r;
-	assign bus_m_byteenable = bus_m_byteenable_r;
+	
+	assign m_axi_awvalid = m_axi_awvalid_r;
+	assign m_axi_awaddr = m_axi_aaddr_r;
+	assign m_axi_awlen = m_axi_alen_r;
+	assign m_axi_awsize = 3'b010; // 4 bytes per transfer
+	assign m_axi_awburst = 2'b01; // fixed burst
+
+	assign m_axi_wlast = m_axi_wlast_r;
+	assign m_axi_wvalid = m_axi_wvalid_r;
+	assign m_axi_wdata = data_r[31:0];
+	assign m_axi_wstrb = m_axi_wstrb_r;
+
+	assign m_axi_bready = m_axi_bready_r;
+
+	assign m_axi_arvalid = m_axi_arvalid_r;
+	assign m_axi_araddr = m_axi_aaddr_r;
+	assign m_axi_arlen = m_axi_alen_r;
+	assign m_axi_arsize = 3'b010; // 4 bytes per transfer
+	assign m_axi_arburst = 2'b01; // fixed burst
+
+	assign m_axi_rready = m_axi_rready_r;	
 
 endmodule
-
-`default_nettype wire

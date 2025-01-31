@@ -1,22 +1,16 @@
-module spart2
+module spart
 (
     input clk,				      // 50MHz clk
     input rst_n,			      // asynch active low reset
 
-    // Slave Input
-    input wire [4:0] bus_burstcount,
-    input wire [31:0] bus_writedata,
-    input wire [29:0] bus_address,
-    input wire bus_write,
-    input wire bus_read,
-    input wire [3:0] bus_byteenable,
-
-    // Slave output
-    output wire s_waitrequest,
-    output wire [31:0] s_readdata,
-    output wire s_readdatavalid,
-    output wire s_writeresponsevalid,
-    output wire [1:0] s_response,
+    // Citron Bus connection
+    input  wire [ 7:0] citron_addr,
+    input  wire        citron_rdy,
+    input  wire        citron_wr,
+    input  wire [31:0] citron_writedata,
+    output wire [31:0] citron_readdata,
+    output wire        citron_stall,
+    output wire        citron_match,
 
     output all_done,
 
@@ -102,7 +96,7 @@ module spart2
     // Instantiate memory for TX queue
     logic [3:0] tx_old_ptr;
     logic [3:0] tx_new_ptr;
-    queue tx_queue (.clk(clk), .enable(tx_enq_rw), .raddr(tx_old_ptr[2:0]), .waddr(tx_new_ptr[2:0]), .wdata(bus_writedata[31:24]), .rdata(tx_data));
+    queue tx_queue (.clk(clk), .enable(tx_enq_rw), .raddr(tx_old_ptr[2:0]), .waddr(tx_new_ptr[2:0]), .wdata(citron_writedata[31:24]), .rdata(tx_data));
     
     // New TX pointer register
     always_ff @(posedge clk,negedge rst_n)
@@ -196,8 +190,6 @@ module spart2
     //end
 	// assign led = ~led_r;
 
-    reg s_responsevalid_rw;
-    reg s_responsevalid_r;
 
     reg [31:0] s_readdata_rw;
     reg [31:0] s_readdata_r;
@@ -207,35 +199,30 @@ module spart2
 
     always @(posedge clk) begin
         if (!rst_n) begin
-            s_responsevalid_r <= 0;
             s_readdata_r <= 0;
             s_respsel_r <= 0;
         end else begin
-            s_responsevalid_r <= s_responsevalid_rw;
             s_readdata_r <= s_readdata_rw;
             s_respsel_r <= s_respsel_rw;
         end
     end
 
-    wire is_my_transaction = bus_address[29:8] == 22'h3e0000;
-    wire start_transaction = (bus_read || bus_write);
+    wire is_my_transaction = {citron_addr[7:2], 2'h0} == 8'h10;
 
     always @(*) begin
-        s_responsevalid_rw = 0;
         s_readdata_rw = 0;
         s_respsel_rw = 0;
 
         tx_enq_rw = 0;
         rx_deq_rw = 0;
 
-        if (is_my_transaction && start_transaction) begin
-            s_responsevalid_rw = 1'b1;
-            if (bus_read) begin
-                case (bus_address[7:0])
-                    8'h10, 8'h12: begin
+        if (is_my_transaction && citron_rdy) begin
+            if (!citron_wr) begin
+                case (citron_addr[1:0])
+                    2'h0, 2'h2: begin
                         s_readdata_rw = {7'h0, tx_q_full, 24'h0};
                     end
-                    8'h11, 8'h13: begin
+                    2'h1, 2'h3: begin
                         if (rx_q_empty) begin
                             s_readdata_rw = {16'hffff, 16'h0};
                         end else begin
@@ -248,8 +235,8 @@ module spart2
                     end
                 endcase
             end else begin
-                case (bus_address[7:0])
-                    8'h11, 8'h13: begin
+                case (citron_addr[1:0])
+                    2'h1, 2'h3: begin
                         tx_enq_rw = ~tx_q_full;
                     end
                     default: begin end
@@ -258,11 +245,10 @@ module spart2
         end
     end
 
-    assign s_waitrequest = 1'b0;
-    assign s_response = 2'h0;
-    assign s_readdata = s_respsel_r ? {rx_data, 24'h0} : s_readdata_r;
-    assign s_readdatavalid = s_responsevalid_r;
-    assign s_writeresponsevalid = s_responsevalid_r;
+    assign citron_stall = 1'b0;
+    assign citron_match = is_my_transaction;
+    assign citron_readdata = s_respsel_r ? {rx_data, 24'h0} : s_readdata_r;
+
     assign all_done = (~tx_q_empty_n) && tx_ready;
 				   
 endmodule

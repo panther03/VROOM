@@ -13,20 +13,33 @@ module LSIC (
     output wire cpu_irq,
     output wire cpu_buserror,
 
-    // Slave Input
-    input wire [4:0] bus_burstcount,
-    input wire [31:0] bus_writedata,
-    input wire [29:0] bus_address,
-    input wire bus_write,
-    input wire bus_read,
-    input wire [3:0] bus_byteenable,
+    input  wire        s_axi_awvalid,
+	output wire        s_axi_awready,
+	input  wire [31:0] s_axi_awaddr,
+	input  wire [ 7:0] s_axi_awlen,
+	input  wire [ 2:0] s_axi_awsize,
+	input  wire [ 1:0] s_axi_awburst,
 
-    // Slave output
-    output wire s_waitrequest,
-    output wire [31:0] s_readdata,
-    output wire s_readdatavalid,
-    output wire s_writeresponsevalid,
-    output wire [1:0] s_response
+	input  wire 	   s_axi_wvalid,
+	output wire        s_axi_wready,
+	input  wire [31:0] s_axi_wdata,
+	input  wire [ 3:0] s_axi_wstrb,
+
+	output wire  	   s_axi_bvalid,
+	input  wire        s_axi_bready,
+	output wire [ 1:0] s_axi_bresp,
+
+	input  wire        s_axi_arvalid,
+	output wire        s_axi_arready,
+	input  wire [31:0] s_axi_araddr,
+	input  wire [ 7:0] s_axi_arlen,
+	input  wire [ 2:0] s_axi_arsize,
+	input  wire [ 1:0] s_axi_arburst,
+
+	output wire 	   s_axi_rvalid,
+	input  wire        s_axi_rready,
+    output wire [31:0] s_axi_rdata,
+	output wire [ 1:0] s_axi_rresp
 );
 
     reg [63:0] disa_r;

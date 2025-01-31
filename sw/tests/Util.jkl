@@ -1,7 +1,7 @@
 #DEFINE XR_ROM_START 0xFFFE0000
 
-PrintAddr : ^UBYTE = CAST 0xE000FFF0 TO ^UBYTE
-ExitAddr : ^UWORD = CAST 0xE000FFF8 TO ^UWORD
+PrintAddr : ^UBYTE = CAST 0xF80003FC TO ^UBYTE
+ExitAddr : ^UWORD = CAST 0xF80003F8 TO ^UWORD
 
 HexLut : UBYTE[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'}
 
