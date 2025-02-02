@@ -19,7 +19,7 @@ endinterface
 module mkMainMem(MainMem);
     BRAM_Configure cfg = defaultValue();
     
-    BRAM1Port#(Bit#(24), BusResp) bram <- mkBRAM1Server(cfg);  // spoilers!
+    BRAM1Port#(Bit#(12), BusResp) bram <- mkBRAM1Server(cfg);  // spoilers!
 
     DelayLine#(10, BusResp) dl <- mkDL(); // Delay by 20 cycles
 
@@ -34,7 +34,7 @@ module mkMainMem(MainMem);
         bram.portA.request.put(BRAMRequest{
                     write: req.byte_strobe != 0,
                     responseOnWrite: False,
-                    address: req.addr[27:4],
+                    address: req.addr[15:4],
                     datain: req.data});
         // $display("SENT TO MM1 WITH ",fshow(req));
     endmethod
@@ -58,6 +58,12 @@ module mkSim(Empty);
     BRAM_Configure cfg = defaultValue();
     cfg.loadFormat = tagged Hex "rom.hex";
     BRAM1Port#(Bit#(14), Word) rom <- mkBRAM1Server(cfg);
+
+    BRAM_Configure scfg = defaultValue();
+    scfg.loadFormat = tagged Hex "stim.hex";
+    BRAM1Port#(Bit#(8), Bit#(8)) serialStim <- mkBRAM1Server(scfg);
+    Reg#(Bit#(8)) serialStimAddr <- mkReg(0);
+    Reg#(Bool) stimValid <- mkReg(True);
 
 /* 
     System memory map:
@@ -94,8 +100,22 @@ module mkSim(Empty);
         if (req.byte_strobe == 'h0) begin
             // nothing here atm
             // hack to get serial input (or lack thereof) working
-            mmioResps.enq(addr32 == 32'hf800_0044 ? {16'hFFFF, 16'h0000} : 32'h0);
             respTracker.enq(MMIO);
+            if (addr32 == 32'hf800_0044) begin
+                if (stimValid) begin
+                    serialStim.portA.request.put(BRAMRequest {
+                        write: False,
+                        responseOnWrite: ?,
+                        address: serialStimAddr,
+                        datain: ?
+                    });
+                    serialStimAddr <= serialStimAddr + 1;
+                end else begin
+                    mmioResps.enq({16'hFFFF, 16'h0000});        
+                end
+            end else begin
+                mmioResps.enq(32'h0);
+            end            
             //$fdisplay(stderr, "Unrecognized MMIO read: %08x", addr32);
         end else begin
             // putchar() OR serial on citron bus
@@ -122,18 +142,28 @@ module mkSim(Empty);
     endaction
     endfunction
 
+    rule handleSerialStimResp;
+        let resp <- serialStim.portA.response.get();
+        if (resp == 0) stimValid <= False;
+        mmioResps.enq({resp, 24'h0});
+    endrule
+
     rule handleBusReq;
         let req <- vroom.getBusReq();
 
         // Line requests need to go to DRAM
         if (unpack(req.line_en)) begin
-            if (req.addr[29:28] != 2'b00) begin
-                $fdisplay(stderr, "DRAM (line) request outside of cached region: %08x", {req.addr, 2'h0});
-                $finish;
-            end 
-            mem.put(req);
-            if (req.byte_strobe == 4'h0)
-                respTracker.enq(DRAM);
+            if (req.addr[29:14] != 16'h0) begin
+                //$fdisplay(stderr, "DRAM (line) request outside of cached region: %08x", {req.addr, 2'h0});
+                if (req.byte_strobe == 4'h0) begin
+                    respTracker.enq(MMIO); 
+                    mmioResps.enq(32'h0);
+                end
+            end else begin
+                mem.put(req);
+                if (req.byte_strobe == 4'h0)
+                    respTracker.enq(DRAM);
+            end
         end else begin
             // go to BOOTROM
             if (req.addr[29:14] == 16'hFFFE) begin

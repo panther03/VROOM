@@ -1,19 +1,6 @@
 // 50mhz clock
 `default_nettype none
 module tb_harness ( input wire clk, input wire rst );
-    wire        rom_s_axi_awvalid;
-    wire        rom_s_axi_awready;
-    wire [31:0] rom_s_axi_awaddr;
-    wire [ 7:0] rom_s_axi_awlen;
-    wire [ 2:0] rom_s_axi_awsize;
-    wire [ 1:0] rom_s_axi_awburst;
-    wire 	    rom_s_axi_wvalid;
-    wire        rom_s_axi_wready;
-    wire [31:0] rom_s_axi_wdata;
-    wire [ 3:0] rom_s_axi_wstrb;
-    wire  	    rom_s_axi_bvalid;
-    wire        rom_s_axi_bready;
-    wire [ 1:0] rom_s_axi_bresp;
     wire        rom_s_axi_arvalid;
     wire        rom_s_axi_arready;
     wire [31:0] rom_s_axi_araddr;
@@ -33,6 +20,7 @@ module tb_harness ( input wire clk, input wire rst );
     wire [ 2:0] ram_s_axi_awsize;
     wire [ 1:0] ram_s_axi_awburst;
     wire 	    ram_s_axi_wvalid;
+    wire 	    ram_s_axi_wlast;
     wire        ram_s_axi_wready;
     wire [31:0] ram_s_axi_wdata;
     wire [ 3:0] ram_s_axi_wstrb;
@@ -80,19 +68,6 @@ module tb_harness ( input wire clk, input wire rst );
         .clk(clk), 
         .rst(rst),
 
-        .rom_m_axi_awvalid(rom_s_axi_awvalid),
-        .rom_m_axi_awready(rom_s_axi_awready),
-        .rom_m_axi_awaddr(rom_s_axi_awaddr),
-        .rom_m_axi_awlen(rom_s_axi_awlen),
-        .rom_m_axi_awsize(rom_s_axi_awsize),
-        .rom_m_axi_awburst(rom_s_axi_awburst),
-        .rom_m_axi_wvalid(rom_s_axi_wvalid),
-        .rom_m_axi_wready(rom_s_axi_wready),
-        .rom_m_axi_wdata(rom_s_axi_wdata),
-        .rom_m_axi_wstrb(rom_s_axi_wstrb),
-        .rom_m_axi_bvalid(rom_s_axi_bvalid),
-        .rom_m_axi_bready(rom_s_axi_bready),
-        .rom_m_axi_bresp(rom_s_axi_bresp),
         .rom_m_axi_arvalid(rom_s_axi_arvalid),
         .rom_m_axi_arready(rom_s_axi_arready),
         .rom_m_axi_araddr(rom_s_axi_araddr),
@@ -112,6 +87,7 @@ module tb_harness ( input wire clk, input wire rst );
         .ram_m_axi_awsize(ram_s_axi_awsize),
         .ram_m_axi_awburst(ram_s_axi_awburst),
         .ram_m_axi_wvalid(ram_s_axi_wvalid),
+        .ram_m_axi_wlast(ram_s_axi_wlast),
         .ram_m_axi_wready(ram_s_axi_wready),
         .ram_m_axi_wdata(ram_s_axi_wdata),
         .ram_m_axi_wstrb(ram_s_axi_wstrb),
@@ -181,19 +157,15 @@ module tb_harness ( input wire clk, input wire rst );
     ) iROM (
         .clk_i(clk),
         .rst_i(rst),
-        .s_axi_awvalid(rom_s_axi_awvalid),
-        .s_axi_awready(rom_s_axi_awready),
-        .s_axi_awaddr(rom_s_axi_awaddr),
-        .s_axi_awlen(rom_s_axi_awlen),
-        .s_axi_awsize(rom_s_axi_awsize),
-        .s_axi_awburst(rom_s_axi_awburst),
-        .s_axi_wvalid(rom_s_axi_wvalid),
-        .s_axi_wready(rom_s_axi_wready),
-        .s_axi_wdata(rom_s_axi_wdata),
-        .s_axi_wstrb(rom_s_axi_wstrb),
-        .s_axi_bvalid(rom_s_axi_bvalid),
-        .s_axi_bready(rom_s_axi_bready),
-        .s_axi_bresp(rom_s_axi_bresp),
+        .s_axi_awvalid(0),
+        .s_axi_awaddr(0),
+        .s_axi_awlen(0),
+        .s_axi_awsize(0),
+        .s_axi_awburst(0),
+        .s_axi_wvalid(0),
+        .s_axi_wdata(0),
+        .s_axi_wstrb(0),
+        .s_axi_bready(0),
         .s_axi_arvalid(rom_s_axi_arvalid),
         .s_axi_arready(rom_s_axi_arready),
         .s_axi_araddr(rom_s_axi_araddr),

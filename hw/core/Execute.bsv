@@ -62,7 +62,7 @@ module mkExecute #(
                         rv3: d2eResult.ops.rv3,
                         inst: d2eResult.di.inst,
                         kid: d2eResult.kid,
-                        isStore: isValid(d2eResult.di.rs3)
+                        isStore: d2eResult.di.store
                     }));
                 end
             end

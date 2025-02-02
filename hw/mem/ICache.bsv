@@ -18,12 +18,12 @@ interface L1ICAU;
 endinterface
 
 module mkL1ICAU(L1ICAU); 
-    Vector#(TExp#(7), Reg#(L1LineTag)) tagStore <- replicateM(mkReg(0));
-    Reg#(Vector#(TExp#(7), Bool)) validStore <- mkReg(replicate(False));
+    Vector#(TExp#(5), Reg#(L1LineTag)) tagStore <- replicateM(mkReg(0));
+    Reg#(Vector#(TExp#(5), Bool)) validStore <- mkReg(replicate(False));
     BRAM_Configure cfg = defaultValue();
     cfg.latency = 2;
-    BRAM1Port#(Bit#(7), LineData) dataStore <- mkBRAM1Server(cfg);
-    BRAM1Port#(Bit#(7), Bool) dirtyStore <- mkBRAM1Server(cfg);
+    BRAM1Port#(Bit#(5), LineData) dataStore <- mkBRAM1Server(cfg);
+    BRAM1Port#(Bit#(5), Bool) dirtyStore <- mkBRAM1Server(cfg);
     FIFO#(L1LineTag) tagFifo <- mkFIFO;
     
     method ActionValue#(HitMissType) req(IMemReq c);
@@ -119,7 +119,7 @@ endinterface
 (* synthesize *)
 module mkICache(ICache);
 
-    L1ICAU cau <- mkL1ICAU();
+    //L1ICAU cau <- mkL1ICAU();
 
     FIFO#(IMemResp) hitQ <- mkBypassFIFO;
     FIFO#(HitMissCacheReq) currReqQ <- mkPipelineFIFO;
@@ -140,7 +140,7 @@ module mkICache(ICache);
     endrule
 
     rule handleInvalidate if (state == WaitCAUResp && doInvalidate);
-        cau.clearValid();
+        //cau.clearValid();
         clearInvalidate.send();
     endrule
 
@@ -173,7 +173,8 @@ module mkICache(ICache);
         let pa = parseL1IAddress(currReq.req.addr[29:2]);
         if (currReq.hit) begin 
             IMemResp word = unpack(0);
-            let x <- cau.resp();
+            L1TaggedLine x = ?;
+            //let x <- cau.resp();
             Vector#(4, IMemResp) line = unpack(x.data);
             word = line[pa.offset];
             if (debug) begin 
@@ -183,7 +184,8 @@ module mkICache(ICache);
             currReqQ.deq();
             hitQ.enq(word);
         end else begin
-            let x <- cau.resp();
+            L1TaggedLine x = ?;
+            //let x <- cau.resp();
             if (x.isDirty) begin
                 // dirty line, need to evict and write to LLC
                 lineReqQ.enq(BusReq {
@@ -199,7 +201,7 @@ module mkICache(ICache);
             end else begin
                 lineReqQ.enq(BusReq {
                     byte_strobe: 4'h0,
-                    addr: currReq.req.addr,
+                    addr: {currReq.req.addr[29:4], 4'h0},
                     data: ?,
                     line_en: 1'b1
                 });
@@ -222,7 +224,7 @@ module mkICache(ICache);
         end
         lineReqQ.enq(BusReq {
             byte_strobe: 4'h0,
-            addr: currReq.req.addr,
+            addr: {currReq.req.addr[29:4], 4'h0},
             data: ?,
             line_en: 1'b1
         });
@@ -246,16 +248,17 @@ module mkICache(ICache);
         // actually care about the result, just that we got one.
         hitQ.enq(word);
         // Update line in CAU
-        cau.update(pa.index, pack(line_vec), pa.tag, dirty);
+        //cau.update(pa.index, pack(line_vec), pa.tag, dirty);
         state <= WaitCAUResp;
     endrule
 
     method Action putFromProc(IMemReq e, Bool passthrough) if (!doPassthrough);
-        if (passthrough) begin
+        if (True) begin
             currReqQ.enq(HitMissCacheReq{req: e, hit: False});
             doPassthrough <= True;
         end else begin
-            let hitMissResult <- cau.req(e);
+            HitMissType hitMissResult = ?;
+            //let hitMissResult <- cau.req(e);
             let pa = parseL1IAddress(e.addr[29:2]);
             case (hitMissResult)
                 LdHit: begin

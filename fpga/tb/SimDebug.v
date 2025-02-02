@@ -60,3 +60,4 @@ module SimDebug (
     assign citron_stall = 0;
     assign citron_match = is_my_transaction;
 endmodule
+`default_nettype wire

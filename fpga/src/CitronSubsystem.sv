@@ -109,6 +109,7 @@ always_comb begin
     s_axi_rvalid_rw = s_axi_rvalid_r;
     s_axi_bvalid_rw = s_axi_bvalid_r;
     s_axi_rresp_rw = {2{~bus_citron_match}};
+    s_axi_rdata_rw = s_axi_rdata_r;
 
     case (state_r) 
         READY: begin

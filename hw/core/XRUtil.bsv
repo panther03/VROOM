@@ -138,6 +138,7 @@ typedef struct {
     Maybe#(Bit#(5)) rs3;
     Maybe#(Bit#(5)) rd;
     Bool serial;
+    Bool store;
     Bool priv;
     Bool barrier;
     Bool forceExceptionSkip;
@@ -295,6 +296,20 @@ function Bool isSerialInst(InstFields fields);
     endcase;
 endfunction
 
+function Bool isStore(InstFields fields);
+    return case (fields.op3l)
+        op3l_IMM_GRP010: True;
+        op3l_REG: case (fields.op3u)
+            op3u_REG_111: case (fields.funct4) 
+                fn4_STORB, fn4_STORI, fn4_STORL: True;
+                default: False;
+            endcase
+            default: False;
+        endcase
+        default: False;
+    endcase;
+endfunction
+
 function Bool isBarrier(InstFields fields);
     return case (fields.op3l)
         op3l_REG: case (fields.op3u)
@@ -333,6 +348,7 @@ function DecodedInst decodeInst(Bit#(32) inst);
         priv: ((fields.op3l == op3l_REG) && (fields.op3u == op3u_REG_101)),
         serial: isSerialInst(fields),
         barrier: isBarrier(fields),
+        store: isStore(fields),
         fu: getFU(fields),
         forceExceptionSkip: isForceExceptionSkip(fields),
         inst: inst

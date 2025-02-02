@@ -111,3 +111,4 @@ assign s_axi_rdata = mem[mem_addr_r];
 assign s_axi_rresp = 2'b00;
 
 endmodule
+`default_nettype wire

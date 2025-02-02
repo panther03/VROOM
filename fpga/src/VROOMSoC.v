@@ -6,19 +6,6 @@ module VROOMSoC #(
 	input  wire clk,
 	input  wire rst,
 	
-	output wire        rom_m_axi_awvalid,
-	input  wire        rom_m_axi_awready,
-	output wire [31:0] rom_m_axi_awaddr,
-	output wire [ 7:0] rom_m_axi_awlen,
-	output wire [ 2:0] rom_m_axi_awsize,
-	output wire [ 1:0] rom_m_axi_awburst,
-	output wire 	   rom_m_axi_wvalid,
-	input  wire        rom_m_axi_wready,
-	output wire [31:0] rom_m_axi_wdata,
-	output wire [ 3:0] rom_m_axi_wstrb,
-	input  wire  	   rom_m_axi_bvalid,
-	output wire        rom_m_axi_bready,
-	input  wire [ 1:0] rom_m_axi_bresp,
 	output wire        rom_m_axi_arvalid,
 	input  wire        rom_m_axi_arready,
 	output wire [31:0] rom_m_axi_araddr,
@@ -40,6 +27,7 @@ module VROOMSoC #(
 	output wire 	   ram_m_axi_wvalid,
 	input  wire        ram_m_axi_wready,
 	output wire [31:0] ram_m_axi_wdata,
+	output wire        ram_m_axi_wlast,
 	output wire [ 3:0] ram_m_axi_wstrb,
 	input  wire  	   ram_m_axi_bvalid,
 	output wire        ram_m_axi_bready,
@@ -245,6 +233,7 @@ module VROOMSoC #(
 		.M00_ADDR_WIDTH(32'd14),
 		.M01_BASE_ADDR(32'hFFFE0000),
 		.M01_ADDR_WIDTH(32'd16),
+		.M01_CONNECT_WRITE(1'b0),
 		.M02_BASE_ADDR(32'hF8000000),
 		.M02_ADDR_WIDTH(32'd12) // should be 10, but it won't let me put that..
     ) iINTERCONNECT (
@@ -296,6 +285,7 @@ module VROOMSoC #(
 		.m00_axi_awready(ram_m_axi_awready),
 		.m00_axi_wdata(ram_m_axi_wdata),
 		.m00_axi_wstrb(ram_m_axi_wstrb),
+		.m00_axi_wlast(ram_m_axi_wlast),
 		.m00_axi_wvalid(ram_m_axi_wvalid),
 		.m00_axi_wready(ram_m_axi_wready),
 		.m00_axi_bresp(ram_m_axi_bresp),
@@ -314,19 +304,7 @@ module VROOMSoC #(
 		.m00_axi_rready(ram_m_axi_rready),
 
 		// ROM
-		.m01_axi_awaddr(rom_m_axi_awaddr),
-		.m01_axi_awlen(rom_m_axi_awlen),
-		.m01_axi_awsize(rom_m_axi_awsize),
-		.m01_axi_awburst(rom_m_axi_awburst),
-		.m01_axi_awvalid(rom_m_axi_awvalid),
-		.m01_axi_awready(rom_m_axi_awready),
-		.m01_axi_wdata(rom_m_axi_wdata),
-		.m01_axi_wstrb(rom_m_axi_wstrb),
-		.m01_axi_wvalid(rom_m_axi_wvalid),
-		.m01_axi_wready(rom_m_axi_wready),
-		.m01_axi_bresp(rom_m_axi_bresp),
-		.m01_axi_bvalid(rom_m_axi_bvalid),
-		.m01_axi_bready(rom_m_axi_bready),
+		// write channel unconnected
 		.m01_axi_araddr(rom_m_axi_araddr),
 		.m01_axi_arlen(rom_m_axi_arlen),
 		.m01_axi_arsize(rom_m_axi_arsize),
@@ -360,3 +338,4 @@ module VROOMSoC #(
 		.m02_axi_rready(citron_s_axi_rready)
     );
 endmodule
+`default_nettype wire

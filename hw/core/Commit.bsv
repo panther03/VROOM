@@ -34,9 +34,7 @@ module mkCommit #(
     rule commit if (fsm.runOk());
         let e2wResult = e2w.first; e2w.deq();
         Bool earlyPoison = !stillValid(e2wResult.sr);
-        // RS3 is used exclusively for stores so this is a shortcut
-        // TODO: Stop being a fuckhead and add another field
-        Bool isStore = isValid(e2wResult.di.rs3);
+        Bool isStore = e2wResult.di.store;
 
         ExcResult ru = ExcResult {
             data: ?,

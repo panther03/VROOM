@@ -97,7 +97,7 @@ module mkMemUnit#(
         let immShift = ~size;
         let addr = m.rv1 + (regForm ? (m.rv2 << fields.shamt5) : (zeroExtend(fields.imm16)) << immShift);
         // only store small immediate instructions have top bit of op3u set to 0
-        Bit#(32) val = !unpack(fields.op3u[2]) ? zeroExtend(fields.regC) : m.rv3;
+        Bit#(32) val = !unpack(fields.op3u[2]) ? signExtend(fields.regB) : m.rv3;
         
         Bit#(2) offset = addr[1:0];
         // Technical details for load byte/int/long
@@ -167,7 +167,7 @@ module mkMemUnit#(
         end 
 
         if (m.isStore) begin
-            konataHelper.labelInstLeft(m.kid, $format(" STORE %08x @ %08x", data, addr));
+            konataHelper.labelInstLeft(m.kid, $format(" STORE @ %08x (%08x)", addr, data));
         end else begin
             konataHelper.labelInstLeft(m.kid, $format(" LOAD @ %08x", addr));
         end

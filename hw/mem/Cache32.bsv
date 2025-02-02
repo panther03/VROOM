@@ -19,18 +19,18 @@ typedef struct {
 interface L1CAU;
     method ActionValue#(HitMissType) req(DMemReq c);
     method ActionValue#(L1TaggedLine) resp;
-    method ActionValue#(Bool) lookup(Bit#(7) line);
+    method ActionValue#(Bool) lookup(Bit#(5) line);
     method Action update(L1LineIndex index, LineData data, L1LineTag tag, Bool dirty);
     method Action clearValid();
 endinterface
 
 module mkL1CAU(L1CAU);
-    Vector#(TExp#(7), Reg#(L1LineTag)) tagStore <- replicateM(mkReg(0));
-    Reg#(Vector#(TExp#(7), Bool)) validStore <- mkReg(replicate(False));
+    Vector#(TExp#(5), Reg#(L1LineTag)) tagStore <- replicateM(mkReg(0));
+    Reg#(Vector#(TExp#(5), Bool)) validStore <- mkReg(replicate(False));
     BRAM_Configure cfg = defaultValue();
     cfg.latency = 2;
-    BRAM1PortBE#(Bit#(7), LineData, 64) dataStore <- mkBRAM1ServerBE(cfg);
-    BRAM1Port#(Bit#(7), Bool) dirtyStore <- mkBRAM1Server(cfg);
+    BRAM1PortBE#(Bit#(5), LineData, 64) dataStore <- mkBRAM1ServerBE(cfg);
+    BRAM1Port#(Bit#(5), Bool) dirtyStore <- mkBRAM1Server(cfg);
     FIFO#(L1LineTag) tagFifo <- mkFIFO;
     
     method ActionValue#(HitMissType) req(DMemReq c);
@@ -93,7 +93,7 @@ module mkL1CAU(L1CAU);
         end
     endmethod
 
-    method ActionValue#(Bool) lookup(Bit#(7) line);
+    method ActionValue#(Bool) lookup(Bit#(5) line);
         let tag = tagStore[line];
         let valid = validStore[line];
         if (valid) begin
@@ -174,7 +174,7 @@ module mkCache32(Cache32);
     FIFO#(HitMissDMemReq) currReqQ <- mkPipelineFIFO;
     FIFO#(BusReq) lineReqQ <- mkFIFO;
     FIFO#(BusResp) lineRespQ <- mkFIFO;
-    FIFO#(Bit#(7)) flushIndexQ <- mkFIFO;
+    FIFO#(Bit#(5)) flushIndexQ <- mkFIFO;
 
     Reg#(CacheState) state <- mkReg(WaitCAUResp);
     Reg#(Bit#(32)) cyc <- mkReg(0);
@@ -184,7 +184,7 @@ module mkCache32(Cache32);
     SrReg doInvalidate <- mkSrReg(True);
     SrReg doFlush <- mkSrReg(True);
     
-    Reg#(Bit#(8)) flushCounter <- mkReg(0);
+    Reg#(Bit#(6)) flushCounter <- mkReg(0);
 
     rule cyc_count_debug if (debug);
         cyc <= cyc + 1;
@@ -213,9 +213,9 @@ module mkCache32(Cache32);
 
     // TODO really scuffed state machine logic using the counter to detect when we are done flushing through
     // just add more states
-    rule flushThroughCache if (state == WaitCAUResp && doFlush.read() && !(unpack(flushCounter[7]) && unpack(flushCounter[0])));
+    rule flushThroughCache if (state == WaitCAUResp && doFlush.read() && !(unpack(flushCounter[5]) && unpack(flushCounter[0])));
         // finished flushing cache
-        if (unpack(flushCounter[7])) begin
+        if (unpack(flushCounter[5])) begin
             // send a read request to an arbitrary address, say 0 so we get something back from the bus
             // once we know it's seen everything else we wrote
             lineReqQ.enq(BusReq {
@@ -225,10 +225,10 @@ module mkCache32(Cache32);
                 data: ?
             });
         end else begin
-            let valid <- cau.lookup(flushCounter[6:0]);
+            let valid <- cau.lookup(flushCounter[4:0]);
             if (valid) begin 
-                if (debug) $display("Flush %02x", flushCounter[7:0]);
-                flushIndexQ.enq(flushCounter[6:0]);
+                if (debug) $display("Flush %02x", flushCounter[5:0]);
+                flushIndexQ.enq(flushCounter[4:0]);
             end 
         end
         flushCounter <= flushCounter + 1;
@@ -289,7 +289,7 @@ module mkCache32(Cache32);
                     byte_strobe: 4'h0,
                     line_en: 1,
                     // make sure we ask for the real line
-                    addr: {currReq.req.addr[29:2], 2'h0},
+                    addr: {currReq.req.addr[29:4], 4'h0},
                     data: ?
                 });
                 if (debug) begin 
@@ -311,7 +311,7 @@ module mkCache32(Cache32);
         end
         lineReqQ.enq(BusReq {
             byte_strobe: 4'h0,
-            addr: {currReq.req.addr[29:2], 2'h0},
+            addr: {currReq.req.addr[29:4], 4'h0},
             line_en: 1,
             data: ?
         });
@@ -392,7 +392,7 @@ module mkCache32(Cache32);
         doFlush.set();
     endmethod
 
-    method Action blockTillFlushDone() if (state == WaitCAUResp && doFlush.read() && (unpack(flushCounter[7]) && unpack(flushCounter[0])));
+    method Action blockTillFlushDone() if (state == WaitCAUResp && doFlush.read() && (unpack(flushCounter[5]) && unpack(flushCounter[0])));
         lineRespQ.deq();
         flushCounter <= 0;
         doFlush.reset();

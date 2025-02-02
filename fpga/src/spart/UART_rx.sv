@@ -1,8 +1,10 @@
+`default_nettype none
+
 module UART_rx (
-    input clk, rst_n,
-    input RX,
-    input [12:0] baud,
-    output [7:0] rx_data,
+    input wire clk, rst_n,
+    input wire RX,
+    input wire [12:0] baud,
+    output wire [7:0] rx_data,
     output reg rdy
 );
 
@@ -114,3 +116,5 @@ always_comb begin
 end
     
 endmodule
+
+`default_nettype wire

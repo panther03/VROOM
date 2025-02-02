@@ -28,8 +28,8 @@ typedef Bit#(512) LineData;
 // L1D Types //
 //////////////
 
-typedef Bit#(19) L1LineTag;
-typedef Bit#(7) L1LineIndex;
+typedef Bit#(21) L1LineTag;
+typedef Bit#(5) L1LineIndex;
 typedef Bit#(4) WordOffset;
 
 typedef struct {
@@ -46,8 +46,8 @@ typedef struct {
 
 function L1ParsedAddress parseL1Address(Bit#(30) address);
     return L1ParsedAddress{
-        tag: address[29:11],
-        index: address[10:4],
+        tag: address[29:9],
+        index: address[8:4],
         offset: address[3:0]
     };
 endfunction
@@ -72,8 +72,8 @@ typedef struct {
 
 function L1IParsedAddress parseL1IAddress(Bit#(28) address);
     return L1IParsedAddress {
-        tag: address[27:9],
-        index: address[8:2],
+        tag: address[27:7],
+        index: address[6:2],
         offset: address[1:0]
     };
 endfunction

@@ -39,7 +39,6 @@ interface VROOMIfc;
     (* always_ready, always_enabled *)
     method Action putBusError((* port = "busError" *)Bool line);
 endinterface
-
 /////////////////////
 // Implementation //
 ///////////////////
