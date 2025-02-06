@@ -201,7 +201,7 @@ module mkCache32(Cache32);
         let resp <- cau.resp();
         if (resp.isDirty) begin
             // TODO: we should also store that it is no longer dirty in the cache, but this is just an optimization
-            if (debug) $display("Dirty line: %08x", {resp.tag, index, 6'h0});
+            if (debug) $display("Dirty line: %08x data", {resp.tag, index, 6'h0}, fshow(resp.data));
             lineReqQ.enq(BusReq {
                 byte_strobe: 4'hF,
                 line_en: 1,
@@ -221,7 +221,7 @@ module mkCache32(Cache32);
             lineReqQ.enq(BusReq {
                 byte_strobe: 4'h0,
                 line_en: 1,
-                addr: (32'h00000800)[31:2],
+                addr: (32'h00000000)[31:2],
                 data: ?
             });
         end else begin
@@ -250,7 +250,7 @@ module mkCache32(Cache32);
 
     rule handleBusPassthrough if (state == BusPassthrough);
         let lineResp = lineRespQ.first; lineRespQ.deq();
-        Vector#(16, Word) lineRespWords = unpack(lineResp);
+        Vector#(16, Word) lineRespWords = unpack(lineResp.data);
         hitQ.enq(lineRespWords[15]);
         state <= WaitCAUResp;
     endrule
@@ -328,7 +328,7 @@ module mkCache32(Cache32);
             $display("(cyc=%d) [DRAM->CACHE]", cyc);
         end
 
-        Vector#(16, Word) line_vec = unpack(line);
+        Vector#(16, Word) line_vec = unpack(line.data);
         let word = line_vec[pa.offset];
         let wb = currReq.req.word_byte;
         let dirty = False;
@@ -351,8 +351,10 @@ module mkCache32(Cache32);
         end else begin
             hitQ.enq(word);
         end
-        // Update line in CAU
-        cau.update(pa.index, pack(line_vec), pa.tag, dirty);
+        // Update line in CAU, only if no bus error
+        if (!line.err) begin
+            cau.update(pa.index, pack(line_vec), pa.tag, dirty);
+        end
         state <= WaitCAUResp;
     endrule
 

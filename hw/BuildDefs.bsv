@@ -1,2 +1,2 @@
-//`define KONATA_ENABLE
+`define KONATA_ENABLE
 //`define DEBUG_ENABLE

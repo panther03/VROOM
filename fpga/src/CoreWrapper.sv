@@ -6,11 +6,6 @@ module CoreWrapper #(
 	input  wire clk,
 	input  wire rst,
 	input  wire cpu_irq,
-	input  wire cpu_buserror,
-
-	output wire [31:0] lsic_badAddr,
-	output wire        lsic_badAddrValid,
-	input  wire        lsic_badAddrAck,
 
 	output wire        m_axi_awvalid,
 	input  wire        m_axi_awready,
@@ -41,6 +36,9 @@ module CoreWrapper #(
 	input  wire [31:0] m_axi_rdata,
 	input  wire [ 1:0] m_axi_rresp
 );
+	wire        busErrorValid;
+	wire        busErrorReady;
+	wire [31:0] busError;
 
 	///////////////////
 	// Bluespec CPU //
@@ -53,6 +51,7 @@ module CoreWrapper #(
 	wire [511:0] reqData;
 
 	wire [511:0] respData;
+	wire         respHasError;
 	wire 		 respValid;
 	wire 		 respReady;
 
@@ -62,12 +61,15 @@ module CoreWrapper #(
 		.EN_getBusReq(reqReady),
 		.getBusReq({reqByteStrobe, reqLineEn, reqAddr, reqData}),
 		.RDY_getBusReq(reqValid),
+
+		.putBusError_busError(busError),
+		.EN_putBusError(busErrorValid),
+		.RDY_putBusError(busErrorReady),
 		
-		.putBusResp_r(respData),
+		.putBusResp_r({respHasError, respData}),
 		.EN_putBusResp(respValid),
 		.RDY_putBusResp(respReady),
-		.putIrq_irq(cpu_irq),
-		.putBusError_busError(cpu_buserror)
+		.putIrq_irq(cpu_irq)
 	);
 
 	/////////////////////
@@ -84,11 +86,12 @@ module CoreWrapper #(
 		.cpu_reqAddr(reqAddr),
 		.cpu_reqData(reqData),
 		.cpu_respData(respData),
+		.cpu_respHasError(respHasError),
 		.cpu_respValid(respValid),
 		.cpu_respReady(respReady),
-		.lsic_badAddr(lsic_badAddr),
-		.lsic_badAddrValid(lsic_badAddrValid),
-		.lsic_badAddrAck(lsic_badAddrAck),
+		.busError(busError),
+		.busErrorValid(busErrorValid),
+		.busErrorReady(busErrorReady),
 		.m_axi_awvalid(m_axi_awvalid),
 		.m_axi_awready(m_axi_awready),
 		.m_axi_awaddr(m_axi_awaddr),
@@ -131,10 +134,11 @@ module CpuBusMaster (
 	output wire 		cpu_respValid,
 	input  wire			cpu_respReady,
 	output wire [511:0] cpu_respData,
+	output wire         cpu_respHasError,
 
-	output wire [31:0] lsic_badAddr,
-	output wire        lsic_badAddrValid,
-	input  wire        lsic_badAddrAck,
+	output wire [31:0] busError,
+	output wire        busErrorValid,
+	input  wire        busErrorReady,
 
 	output wire        m_axi_awvalid,
 	input  wire        m_axi_awready,
@@ -269,13 +273,11 @@ module CpuBusMaster (
 		m_axi_bready_rw = m_axi_bready_r;
 		m_axi_rready_rw = m_axi_rready_r;
 
-		// Has the LSIC acknowledged our bus error? Reset it.
+		// Has the CPU acknowledged our bus error (valid & rdy)? Reset it.
 		// Otherwise we listen for any errors (bus_m_response != 0) and use that as an enable signal.
-		// TODO: actually implement this; policy for now is to treat all responses as 0
-		badAddrValid_rw = 1'b0; 
-		/*lsic_badAddrAck ? 1'h0 : (badAddrValid_r | 
+		badAddrValid_rw = (badAddrValid_r & busErrorReady) ? 1'h0 : (badAddrValid_r | 
 		((read_handshake_w && m_axi_rresp[1]) | 
-		(m_axi_bvalid && m_axi_bready_r && m_axi_bresp[1])));*/
+		(m_axi_bvalid && m_axi_bready_r && m_axi_bresp[1])));
 
 		data_rw = beat_handshake_w ? {m_axi_rdata & read_error_mask_w, data_r[511:32]} : data_r;
 
@@ -292,7 +294,9 @@ module CpuBusMaster (
 					m_axi_awvalid_rw = cpu_reqWe_w;
 					m_axi_arvalid_rw = ~cpu_reqWe_w;
 					m_axi_wstrb_rw = cpu_reqByteStrobe;
-					state_rw = cpu_reqWe_w ? WADDR : RADDR;
+					// dumb hack for write to reset register
+					state_rw = (m_axi_aaddr_rw == 32'hF8800000) ? IDLE
+						: cpu_reqWe_w ? WADDR : RADDR;
 				end
 			end
 			RADDR: begin
@@ -377,10 +381,12 @@ module CpuBusMaster (
 	// time it will spam the rule, which we do not want.
 	assign cpu_reqReady = reqReady_rw;
 	assign cpu_respData = data_r;
+	assign cpu_respHasError = badAddrValid_r;
 	assign cpu_respValid = respValid_rw;
 
-	assign lsic_badAddr = m_axi_aaddr_r;
-	assign lsic_badAddrValid = badAddrValid_r;
+	// same case here. guard valid signal.
+	assign busError = m_axi_aaddr_r;
+	assign busErrorValid = badAddrValid_r & busErrorReady;
 
 	
 	assign m_axi_awvalid = m_axi_awvalid_r;

@@ -36,8 +36,7 @@ interface VROOMIfc;
     method Action putBusResp(BusResp r);
     (* always_ready, always_enabled *)
     method Action putIrq((* port = "irq" *)Bool line);
-    (* always_ready, always_enabled *)
-    method Action putBusError((* port = "busError" *)Bool line);
+    method Action putBusError((* port = "busError" *)BusError err);
 endinterface
 /////////////////////
 // Implementation //
@@ -48,6 +47,10 @@ typedef struct {
     BusAccOrigin origin;
     Bit#(4) addr_low;
 } BusBusiness deriving (Bits, FShow);
+
+typedef struct {
+    Bit#(32) badAddr;
+} BusError deriving (Bits, FShow);
 
 (* synthesize *)
 module mkVROOM (VROOMIfc);
@@ -75,7 +78,13 @@ module mkVROOM (VROOMIfc);
     Ehr#(2, Epoch) epoch <- mkEhr(2'h0);
 
     Wire#(Bool) irq <- mkWire;
-    Wire#(Bool) busError <- mkWire;
+    FIFOF#(BusError) busError <- mkFIFOF;
+
+    Reg#(Bit#(32)) cyc <- mkReg(32'h0);
+
+    rule fuck;
+        cyc <= cyc + 1;
+    endrule
 
     ////////////////////////////////
     // Stages + Functional Units //
@@ -322,15 +331,17 @@ module mkVROOM (VROOMIfc);
    
 
     rule handleAsyncException if (fsm.runOk());
-        if (busError) begin
+        if (busError.notEmpty) begin
+            $display("exception time @ %d", cyc);
+            let err = busError.first; busError.deq();
             fsm.trs_EnterASyncException();
-            exceptions.putASyncException(True);
+            exceptions.putASyncException(tagged Valid(err.badAddr));
         end else if (irq) begin
             fsm.trs_EnterASyncException();
-            exceptions.putASyncException(False);
+            exceptions.putASyncException(tagged Invalid);
         end
     endrule
-
+    
     //////////////////
     // Bus Methods //
     ////////////////
@@ -348,7 +359,7 @@ module mkVROOM (VROOMIfc);
         irq <= line;
     endmethod
 
-    method Action putBusError(Bool line);
-        busError <= line;
+    method Action putBusError(BusError err);
+        busError.enq(err);
     endmethod
 endmodule

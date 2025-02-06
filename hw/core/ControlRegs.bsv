@@ -51,6 +51,7 @@ interface ControlRegs;
     method Bit#(32) readCRRaw(Bit#(5) idx);
     method ModeByte getCurrMode();
     method Action setEpc(Bit#(32) pc);
+    method Action updateBadAddr(Bit#(32) addr);
     method Action updateRsForExc(Bit#(4) ecause);
     method Bit#(32) calcPopModeBits();
 endinterface
@@ -108,6 +109,10 @@ module mkCRS #(
         newRs.curr = unpack({pack(newRs.curr)[7:2], 2'b00});
         newRs.ecause = ecause;
         crf[pack(RS)][1] <= pack(newRs);
+    endmethod
+
+    method Action updateBadAddr(Bit#(32) addr);
+        crf[pack(EBADADDR)][1] <= addr;
     endmethod
 
     method Bit#(32) calcPopModeBits();

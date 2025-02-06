@@ -290,6 +290,11 @@ function Bool isSerialInst(InstFields fields);
                 fn4_MTCR, fn4_RFE, fn4_HLT: True;
                 default: False;
             endcase
+            // TODO: do we actually need this?
+            //op3u_REG_110: case (fields.funct4)
+            //    fn4_WMB, fn4_MB: True;
+            //    default: False;
+            //endcase
             default: False;
         endcase
         default: False;

@@ -93,8 +93,9 @@ module mkCommit #(
             // otherwise need to also flush the pipleine *before* mtcr
             if (commitOk) crs.writeCR((fields.funct4 == fn4_MTCR) ? fields.regC : pack(RS), ru.data); 
         end else if (isStore) begin
-            if (commitOk) begin
-                mu.commitStore();
+            if (!earlyPoison && !isValid(finalEcause)) begin
+                // late poison still needs pop
+                mu.popSQ(commitOk);
             end
         end
         

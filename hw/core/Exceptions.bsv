@@ -13,7 +13,7 @@ import Alu::*;
 import ControlRegs::*;
 
 interface ExceptionsIntf;
-    method Action putASyncException(Bool isBusError);
+    method Action putASyncException(Maybe#(Bit#(32)) busBadAddr);
     method Action putSyncException(ExceptionRequest er);
 endinterface
 
@@ -56,10 +56,14 @@ module mkExceptions #(
         busy <= False;      
     endrule
 
-    method Action putASyncException(Bool isBusError) if (!busy && !syncExcStarted && fsm.getState() != Exception);
-        erReg <= ExceptionRequest {
-            ecause: isBusError ? ecause_BUS : ecause_INT
-        };
+    method Action putASyncException(Maybe#(Bit#(32)) busBadAddr) if (!busy && !syncExcStarted && fsm.getState() != Exception);
+        if (isValid(busBadAddr)) begin
+            $display("exception time.");
+            erReg <= ExceptionRequest { ecause: ecause_BUS };
+            crs.updateBadAddr(fromMaybe(?, busBadAddr));
+        end else begin
+            erReg <= ExceptionRequest { ecause: ecause_INT };
+        end
         busy <= True;
     endmethod
 

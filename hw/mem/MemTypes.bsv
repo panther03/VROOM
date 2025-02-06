@@ -3,7 +3,7 @@ typedef Bit#(32) Word;
 
 // Bus types
 typedef struct { Bit#(4) byte_strobe; Bit#(1) line_en; Bit#(30) addr; Bit#(512) data;} BusReq deriving (Eq, FShow, Bits, Bounded);
-typedef Bit#(512) BusResp;
+typedef struct { Bool err; Bit#(512) data; } BusResp deriving (Eq, Bits, FShow);
 
 // Cache types
 typedef struct { Bit#(4) word_byte; Bit#(30) addr; Bit#(32) data;} DMemReq deriving (Eq, FShow, Bits, Bounded);

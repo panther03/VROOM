@@ -86,7 +86,6 @@ module VROOMSoC #(
 	wire [ 1:0] cpu_m_axi_rresp;
 
 	wire cpu_irq = 1'b0;
-	wire cpu_buserror = 1'b0;
 
     CoreWrapper #(
         .SIMULATION(0)   
@@ -94,10 +93,6 @@ module VROOMSoC #(
         .clk(clk), 
         .rst(rst),
 		.cpu_irq(cpu_irq),
-		.cpu_buserror(cpu_buserror),
-		.lsic_badAddr(lsic_badAddr),
-		.lsic_badAddrValid(lsic_badAddrValid),
-		.lsic_badAddrAck(lsic_badAddrAck),
         .m_axi_awvalid(cpu_m_axi_awvalid),
 		.m_axi_awready(cpu_m_axi_awready),
 		.m_axi_awaddr(cpu_m_axi_awaddr),
@@ -156,9 +151,6 @@ module VROOMSoC #(
 		.clk(clk),
 		.rst_n(~rst),
 		.irqs(irqs),
-		.badAddr(lsic_badAddr),
-		.badAddrValid(lsic_badAddrValid),
-		.badAddrAck(lsic_badAddrAck),
 		.cpu_irq(cpu_irq),
 		.cpu_buserror(cpu_buserror),
 		.s_waitrequest(lsic_s_waitrequest),

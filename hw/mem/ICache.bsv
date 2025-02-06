@@ -163,7 +163,9 @@ module mkICache(ICache);
 
     rule handleBusPassthrough if (state == BusPassthrough);
         let lineResp = lineRespQ.first; lineRespQ.deq();
-        Vector#(16, Word) lineRespWords = unpack(lineResp);
+        // TODO: should propagate back to the core that there was an error
+        // if a bus error happened here
+        Vector#(16, Word) lineRespWords = unpack(lineResp.data);
         hitQ.enq({96'h0, lineRespWords[15]});
         state <= WaitCAUResp;
     endrule
@@ -241,14 +243,16 @@ module mkICache(ICache);
             $display("(cyc=%d) [DRAM->CACHE]", cyc);
         end
 
-        Vector#(4, IMemResp) line_vec = unpack(line);
+        Vector#(4, IMemResp) line_vec = unpack(line.data);
         let word = line_vec[pa.offset];
         let dirty = False;
         // Always enqueue the word. If it's a store, we don't
         // actually care about the result, just that we got one.
         hitQ.enq(word);
         // Update line in CAU
-        //cau.update(pa.index, pack(line_vec), pa.tag, dirty);
+        //if (!line.err) begin
+        //    cau.update(pa.index, pack(line_vec), pa.tag, dirty);
+        //end
         state <= WaitCAUResp;
     endrule
 

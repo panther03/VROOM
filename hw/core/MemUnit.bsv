@@ -32,7 +32,7 @@ typedef struct { Bit#(2) size; Bit#(2) offset; } ReadBusiness deriving (Eq, FSho
 interface MemUnit;
     method ActionValue#(ExcResult) deq();
     method Action enq(MemInst m);
-    method Action commitStore();
+    method Action popSQ(Bool commit);
 endinterface
 
 module mkMemUnit#(
@@ -206,10 +206,10 @@ module mkMemUnit#(
         return res;
     endmethod
 
-    method Action commitStore();
+    method Action popSQ(Bool commit);
         let lastStore = storeQueue.first;
         storeQueue.deq();
         //storeBuffer.enq(lastStore);
-        putDMemReq(lastStore);
+        if (commit) putDMemReq(lastStore);
     endmethod
 endmodule
