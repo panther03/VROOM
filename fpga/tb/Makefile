@@ -83,7 +83,7 @@ run:
 	@echo "-- RUN ---------------------"
 	@rm -rf logs
 	@mkdir -p logs
-	obj_dir/V$(TOP) 
+	obj_dir/V$(TOP) +trace
  
 	@echo
 	@echo "-- DONE --------------------"

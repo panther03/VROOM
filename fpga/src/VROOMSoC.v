@@ -122,13 +122,9 @@ module VROOMSoC #(
 	/////////////////
 	// LSIC slave //
 	///////////////
-	/*
 	wire        lsic_s_axi_awvalid;
 	wire        lsic_s_axi_awready;
 	wire [31:0] lsic_s_axi_awaddr;
-	wire [ 7:0] lsic_s_axi_awlen;
-	wire [ 2:0] lsic_s_axi_awsize;
-	wire [ 1:0] lsic_s_axi_awburst;
 	wire 	    lsic_s_axi_wvalid;
 	wire        lsic_s_axi_wready;
 	wire [31:0] lsic_s_axi_wdata;
@@ -139,32 +135,36 @@ module VROOMSoC #(
 	wire        lsic_s_axi_arvalid;
 	wire        lsic_s_axi_arready;
 	wire [31:0] lsic_s_axi_araddr;
-	wire [ 7:0] lsic_s_axi_arlen;
-	wire [ 2:0] lsic_s_axi_arsize;
-	wire [ 1:0] lsic_s_axi_arburst;
 	wire 	    lsic_s_axi_rvalid;
 	wire        lsic_s_axi_rready;
+	wire        lsic_s_axi_rlast;
 	wire [31:0] lsic_s_axi_rdata;
 	wire [ 1:0] lsic_s_axi_rresp;
 
 	LSIC iLSIC (
 		.clk(clk),
 		.rst_n(~rst),
-		.irqs(irqs),
+		.irqs(64'h0),
 		.cpu_irq(cpu_irq),
-		.cpu_buserror(cpu_buserror),
-		.s_waitrequest(lsic_s_waitrequest),
-		.s_readdata(lsic_s_readdata),
-		.s_readdatavalid(lsic_s_readdatavalid),
-		.s_response(lsic_s_response),
-		.s_writeresponsevalid(lsic_s_writeresponsevalid),
-		.bus_burstcount(cpu_burstcount),
-		.bus_writedata(cpu_writedata),
-		.bus_address(cpu_address),
-		.bus_write(cpu_write),
-		.bus_read(cpu_read),
-		.bus_byteenable(cpu_byteenable)
-	);*/
+		.s_axi_awvalid(lsic_s_axi_awvalid),
+		.s_axi_awready(lsic_s_axi_awready),
+		.s_axi_awaddr(lsic_s_axi_awaddr),
+		.s_axi_wvalid(lsic_s_axi_wvalid),
+		.s_axi_wready(lsic_s_axi_wready),
+		.s_axi_wdata(lsic_s_axi_wdata),
+		.s_axi_wstrb(lsic_s_axi_wstrb),
+		.s_axi_bvalid(lsic_s_axi_bvalid),
+		.s_axi_bready(lsic_s_axi_bready),
+		.s_axi_bresp(lsic_s_axi_bresp),
+		.s_axi_arvalid(lsic_s_axi_arvalid),
+		.s_axi_arready(lsic_s_axi_arready),
+		.s_axi_araddr(lsic_s_axi_araddr),
+		.s_axi_rvalid(lsic_s_axi_rvalid),
+		.s_axi_rready(lsic_s_axi_rready),
+		.s_axi_rlast(lsic_s_axi_rlast),
+		.s_axi_rdata(lsic_s_axi_rdata),
+		.s_axi_rresp(lsic_s_axi_rresp)
+	);
 
 	///////////////////////
 	// Citron Subsystem //
@@ -220,14 +220,16 @@ module VROOMSoC #(
 	// AXI Crossbar //
     /////////////////
 
-    axi_interconnect_wrap_1x3 #(
+    axi_interconnect_wrap_1x4 #(
 		.M00_BASE_ADDR(0),
 		.M00_ADDR_WIDTH(32'd14),
 		.M01_BASE_ADDR(32'hFFFE0000),
 		.M01_ADDR_WIDTH(32'd16),
 		.M01_CONNECT_WRITE(1'b0),
 		.M02_BASE_ADDR(32'hF8000000),
-		.M02_ADDR_WIDTH(32'd12) // should be 10, but it won't let me put that..
+		.M02_ADDR_WIDTH(32'd12), // should be 10, but it won't let me put that..
+		.M03_BASE_ADDR(32'hF8030000),
+		.M03_ADDR_WIDTH(32'd12) // should be 10, but it won't let me put that..
     ) iINTERCONNECT (
         .clk(clk),
         .rst(rst),
@@ -327,7 +329,27 @@ module VROOMSoC #(
 		.m02_axi_rresp(citron_s_axi_rresp),
 		.m02_axi_rlast(citron_s_axi_rlast),
 		.m02_axi_rvalid(citron_s_axi_rvalid),
-		.m02_axi_rready(citron_s_axi_rready)
+		.m02_axi_rready(citron_s_axi_rready),
+
+		// LSIC
+		.m03_axi_awaddr(lsic_s_axi_awaddr),
+		.m03_axi_awvalid(lsic_s_axi_awvalid),
+		.m03_axi_awready(lsic_s_axi_awready),
+		.m03_axi_wdata(lsic_s_axi_wdata),
+		.m03_axi_wstrb(lsic_s_axi_wstrb),
+		.m03_axi_wvalid(lsic_s_axi_wvalid),
+		.m03_axi_wready(lsic_s_axi_wready),
+		.m03_axi_bresp(lsic_s_axi_bresp),
+		.m03_axi_bvalid(lsic_s_axi_bvalid),
+		.m03_axi_bready(lsic_s_axi_bready),
+		.m03_axi_araddr(lsic_s_axi_araddr),
+		.m03_axi_arvalid(lsic_s_axi_arvalid),
+		.m03_axi_arready(lsic_s_axi_arready),
+		.m03_axi_rdata(lsic_s_axi_rdata),
+		.m03_axi_rresp(lsic_s_axi_rresp),
+		.m03_axi_rlast(lsic_s_axi_rlast),
+		.m03_axi_rvalid(lsic_s_axi_rvalid),
+		.m03_axi_rready(lsic_s_axi_rready)
     );
 endmodule
 `default_nettype wire

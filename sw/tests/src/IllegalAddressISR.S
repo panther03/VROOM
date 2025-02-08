@@ -10,13 +10,15 @@ ExcHandlerFull:
     la t1, PrintNumFull
     mfcr a0, ebadaddr
     jalr zero, t1, 0
-    // return code for simexit in routine
-    li a0, 0
-    la t1, SimExit
-    jalr zero, t1, 0
+    // return code for simexit in TestMain
+    li a3, 0
+    li t1, 0
+    mov lr, t4
+    rfe
 
 TestMain:
 .global TestMain
+    mov t4, lr
     la t3, ExcHandlerFull
     la t1, ExcHandlerStub
     // load the instruction
@@ -28,7 +30,7 @@ TestMain:
     mtcr eb, zero
 
     // set return code for failure case
-    li a3, 3
+    li a3, 7
 
     // barrier so that the dcache is flushed out
     mb
@@ -51,8 +53,9 @@ TestMain:
     
     ret
 
+
 .section data 
 
 OutsideBadAddr:
 .global OutsideBadAddr
-.dl 0xF8000064
+.dl 0xC0000000

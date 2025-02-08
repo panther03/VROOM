@@ -189,6 +189,7 @@ module CpuBusMaster (
 	localparam [2:0] WDATA      = 3'h4;
 	localparam [2:0] RRESP      = 3'h5;
 	localparam [2:0] WRESP      = 3'h6;
+	localparam [2:0] WAIT       = 3'h7;
 
 	reg [2:0] state_r;
 	reg [2:0] state_rw;
@@ -205,6 +206,11 @@ module CpuBusMaster (
 
 	reg badAddrValid_r;
 	reg badAddrValid_rw;
+
+	reg read_err_r;
+	reg read_err_rw;
+
+	reg read_err_en_rw;
 
 	reg [4:0] outstanding_responses_r;
 	reg [4:0] outstanding_responses_rw;
@@ -237,12 +243,14 @@ module CpuBusMaster (
 			cpu_reqWe_r <= 0;
 			respValid_r <= 0;
 			badAddrValid_r <= 0;
+			read_err_r <= 0;
 		end else begin
 			state_r <= state_rw;
 			data_r <= data_rw;
 			cpu_reqWe_r <= cpu_reqWe_rw;
 			respValid_r <= respValid_rw;
 			badAddrValid_r <= badAddrValid_rw;
+			read_err_r <= read_err_rw; 
 		end
 	end
 
@@ -252,6 +260,7 @@ module CpuBusMaster (
 	wire read_handshake_w = (m_axi_rvalid && m_axi_rready_r);
 	wire write_handshake_w = (m_axi_wvalid_r && m_axi_wready);
 	wire beat_handshake_w = read_handshake_w || write_handshake_w;
+	// im sorry
 	wire [31:0] read_error_mask_w = {32{~m_axi_rresp[1]}};
 
 	always @(*) begin
@@ -275,9 +284,14 @@ module CpuBusMaster (
 
 		// Has the CPU acknowledged our bus error (valid & rdy)? Reset it.
 		// Otherwise we listen for any errors (bus_m_response != 0) and use that as an enable signal.
-		badAddrValid_rw = (badAddrValid_r & busErrorReady) ? 1'h0 : (badAddrValid_r | 
-		((read_handshake_w && m_axi_rresp[1]) | 
-		(m_axi_bvalid && m_axi_bready_r && m_axi_bresp[1])));
+		badAddrValid_rw = (badAddrValid_r & busErrorReady) ? 1'h0 : ((m_axi_aaddr_r[31:12] != 20'hF8001) && (badAddrValid_r | 
+		((read_err_rw & read_err_en_rw) | (m_axi_bvalid && m_axi_bready_r && m_axi_bresp[1]))));
+		read_err_rw = read_err_r | (read_handshake_w && m_axi_rresp[1]);
+		read_err_en_rw = 1'b0;
+
+		if (badAddrValid_rw & ~badAddrValid_r) begin
+			$display("bad bad bad %08x", m_axi_aaddr_r);
+		end
 
 		data_rw = beat_handshake_w ? {m_axi_rdata & read_error_mask_w, data_r[511:32]} : data_r;
 
@@ -287,19 +301,24 @@ module CpuBusMaster (
 				// 2. Any errors in the previous transaction have been acknowledged by the LSIC.
 				if (cpu_reqValid & ~badAddrValid_r) begin
 					reqReady_rw = 1;
-					data_rw = cpu_reqData;
 					cpu_reqWe_rw = cpu_reqWe_w;
-					m_axi_alen_rw = cpu_reqLineEn ? 8'hF : 8'h0;
+					data_rw = cpu_reqData;
 					m_axi_aaddr_rw = {cpu_reqAddr, 2'h0};
-					m_axi_awvalid_rw = cpu_reqWe_w;
-					m_axi_arvalid_rw = ~cpu_reqWe_w;
-					m_axi_wstrb_rw = cpu_reqByteStrobe;
-					// dumb hack for write to reset register
-					state_rw = (m_axi_aaddr_rw == 32'hF8800000) ? IDLE
-						: cpu_reqWe_w ? WADDR : RADDR;
-				end
+					// awful stupid hack
+					
+					if (m_axi_aaddr_rw == 32'hF8800000 || (cpu_reqWe_rw && m_axi_aaddr_rw[31:12] == 20'hF8001)) begin
+						state_rw = WAIT;
+					end else begin
+						m_axi_alen_rw = cpu_reqLineEn ? 8'hF : 8'h0;
+						m_axi_awvalid_rw = cpu_reqWe_w;
+						m_axi_arvalid_rw = ~cpu_reqWe_w;
+						m_axi_wstrb_rw = cpu_reqByteStrobe;
+						state_rw = cpu_reqWe_w ? WADDR : RADDR;
+					end					
+	 			end
 			end
 			RADDR: begin
+				read_err_rw = 1'b0;
 				if (m_axi_arvalid_r && m_axi_arready) begin
 					m_axi_arvalid_rw = 1'b0;
 					m_axi_rready_rw = 1'b1;
@@ -311,6 +330,7 @@ module CpuBusMaster (
 			RDATA: begin
 				if (read_handshake_w && (m_axi_alen_r == 0)) begin
 					m_axi_rready_rw = 1'b0;
+					read_err_en_rw = 1'b1;
 					state_rw = RRESP;
 				end else begin
 					state_rw = RDATA;
@@ -348,6 +368,9 @@ module CpuBusMaster (
 				end else begin
 					state_rw = WRESP;
 				end
+			end
+			WAIT: begin
+				state_rw = IDLE;
 			end
 		endcase
 	end

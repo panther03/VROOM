@@ -115,8 +115,8 @@ always_comb begin
         READY: begin
             s_axi_awready_rw = 1;
             s_axi_arready_rw = 1;
+            rd_n_wr_rw = s_axi_arvalid;
             if (is_my_transaction && (aw_handshake || ar_handshake)) begin
-                rd_n_wr_rw = s_axi_arvalid;
                 bus_citron_addr_rw = req_addr[9:2];
                 bus_citron_rdy_rw = rd_n_wr_rw;
                 bus_citron_wr_rw = ~rd_n_wr_rw;
@@ -229,6 +229,6 @@ assign s_axi_bresp = 2'b00;
 assign s_axi_rlast = 1'b1; // does not do bursts
 assign s_axi_rvalid = s_axi_rvalid_r;
 assign s_axi_rdata = s_axi_rdata_r;
-assign s_axi_rresp = s_axi_rresp_r;
+assign s_axi_rresp = 2'b00;
 
 endmodule

@@ -16,7 +16,7 @@ module uartdpi #(
   input  logic rx_i
 );
   // Path to a log file. Used if none is specified through the `UARTDPI_LOG_<name>` plusarg.
-  localparam string DEFAULT_LOG_FILE = {NAME, ".log"};
+  localparam string DEFAULT_LOG_FILE = "/dev/stdout"; //{NAME, ".log"};
 
   // Min cycles is 2 for fast test mode
   localparam int CYCLES_PER_SYMBOL = FREQ / BAUD;

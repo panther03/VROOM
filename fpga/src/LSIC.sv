@@ -6,19 +6,12 @@ module LSIC (
 
     input wire [63:0] irqs,
 
-    input wire [31:0] badAddr,
-    input wire badAddrValid,
-    output wire badAddrAck,
-
     output wire cpu_irq,
-    output wire cpu_buserror,
 
+     // AXI bus interface
     input  wire        s_axi_awvalid,
 	output wire        s_axi_awready,
 	input  wire [31:0] s_axi_awaddr,
-	input  wire [ 7:0] s_axi_awlen,
-	input  wire [ 2:0] s_axi_awsize,
-	input  wire [ 1:0] s_axi_awburst,
 
 	input  wire 	   s_axi_wvalid,
 	output wire        s_axi_wready,
@@ -32,11 +25,9 @@ module LSIC (
 	input  wire        s_axi_arvalid,
 	output wire        s_axi_arready,
 	input  wire [31:0] s_axi_araddr,
-	input  wire [ 7:0] s_axi_arlen,
-	input  wire [ 2:0] s_axi_arsize,
-	input  wire [ 1:0] s_axi_arburst,
 
 	output wire 	   s_axi_rvalid,
+    output wire 	   s_axi_rlast,
 	input  wire        s_axi_rready,
     output wire [31:0] s_axi_rdata,
 	output wire [ 1:0] s_axi_rresp
@@ -90,104 +81,162 @@ module LSIC (
         end
     end
 
-    reg [32:0] badAddr_r;
-    reg badAddrAck_r;
+    ////////////////////////
+    // AXI Slave Control //
+    //////////////////////
+    typedef enum reg [1:0] { READY, RD, WDATA, WRESP } axi_slv_state_t;
+    axi_slv_state_t state_r, state_rw;
+    reg rd_n_wr_r, rd_n_wr_rw;
 
-    reg badAddrClear_rw;
+    reg s_axi_awready_r, s_axi_awready_rw;
+    reg s_axi_arready_r, s_axi_arready_rw;
+    reg s_axi_wready_r, s_axi_wready_rw;
+    reg s_axi_rvalid_r, s_axi_rvalid_rw;
+    reg s_axi_bvalid_r, s_axi_bvalid_rw;
 
-    always @(posedge clk) begin
+    reg [31:0] s_axi_rdata_r, s_axi_rdata_rw;
+
+    reg [5:0] lsic_regaddr_r, lsic_regaddr_rw;
+    reg all_err_r, all_err_rw;
+    reg w_err_rw;
+    reg r_err_rw;
+
+    always_ff @(posedge clk) begin
         if (!rst_n) begin
-            badAddr_r <= 0;
-            badAddrAck_r <= 0;
-        end else if (badAddrValid) begin
-            badAddr_r <= {1'b1, badAddr};
-            badAddrAck_r <= 1;
-        end else if (badAddrClear_rw) begin
-            badAddr_r <= 0;
-            badAddrAck_r <= 0;
+            state_r <= READY;
+            rd_n_wr_r <= 0;
+
+            s_axi_awready_r <= 0;
+            s_axi_arready_r <= 0;
+            s_axi_wready_r <= 0;
+            s_axi_rvalid_r <= 0;
+            s_axi_bvalid_r <= 0;
+            s_axi_rdata_r <= 0;
+
+            lsic_regaddr_r <= 0;
+            all_err_r <= 0;
         end else begin
-            badAddr_r <= badAddr_r;
-            badAddrAck_r <= 0;
+            state_r <= state_rw;
+            rd_n_wr_r <= rd_n_wr_rw;
+
+            s_axi_awready_r <= s_axi_awready_rw;
+            s_axi_arready_r <= s_axi_arready_rw;
+            s_axi_wready_r <= s_axi_wready_rw;
+            s_axi_rvalid_r <= s_axi_rvalid_rw;
+            s_axi_bvalid_r <= s_axi_bvalid_rw;
+            s_axi_rdata_r <= s_axi_rdata_rw;
+
+            lsic_regaddr_r <= lsic_regaddr_rw;
+            all_err_r <= all_err_rw;
         end
     end
 
-    // TODO: add some check that burstcount is never > 1, because this peripheral won't handle it
-    reg s_responsevalid_rw;
-    reg s_responsevalid_r;
-
-    reg [1:0] s_response_rw;
-    reg [1:0] s_response_r;
-
-    reg [31:0] s_readdata_rw;
-    reg [31:0] s_readdata_r;
-
-    always @(posedge clk) begin
-        if (!rst_n) begin
-            s_responsevalid_r <= 0;
-            s_readdata_r <= 0;
-            s_response_r <= 0;
-        end else begin
-            s_responsevalid_r <= s_responsevalid_rw;
-            s_readdata_r <= s_readdata_rw;
-            s_response_r <= s_response_rw;
-        end
-    end
-
-
+    wire [31:0] req_addr = s_axi_arvalid ? s_axi_araddr : s_axi_awaddr;
     // Bottom 3 bits should be 0, we only care about the first LSIC
-    wire is_my_transaction = bus_address[29:3] == {24'hf80300, 3'h0};
-    wire start_transaction = (bus_read || bus_write);
+    wire is_actually_my_transaction = req_addr[31:5] == {24'hf80300, 3'h0};
+    // what the interconnect expects
+    wire is_my_transaction = req_addr[31:12] == 20'hf8030;
+    wire aw_handshake = s_axi_awvalid && s_axi_awready_r;
+    wire ar_handshake = s_axi_arvalid && s_axi_arready_r;
+    
+    always_comb begin
+        r_err_rw = 1'b0;
+        case (lsic_regaddr_r)
+            6'h00: s_axi_rdata_rw = disa_r[31:0];
+            6'h01: s_axi_rdata_rw = disa_r[63:32];
+            6'h02: s_axi_rdata_rw = pend_r[31:0];
+            6'h03: s_axi_rdata_rw = pend_r[63:32];
+            6'h04: s_axi_rdata_rw = {26'h0, claim_ff2_r[5:0]};
+            6'h05: s_axi_rdata_rw = {26'h0, ipl_r};
+            default: begin 
+                r_err_rw = 1;
+                s_axi_rdata_rw = 32'h?;
+            end
+        endcase
+    end
 
-    always @(*) begin
-        s_responsevalid_rw = 0;
-        s_readdata_rw = 0;
-        s_response_rw = 0;
-        badAddrClear_rw = 0;
-
+    always_comb begin
+        w_err_rw = 1'b0;
         disa_rw = disa_r;
         pend_rw_pre = pend_r;
         pend_rw = pend_rw_pre | irqs;
         ipl_rw = ipl_r;
-
-        if (is_my_transaction && start_transaction) begin
-            if (bus_read) begin
-                case (bus_address[5:0])
-                    6'h00: s_readdata_rw = disa_r[31:0];
-                    6'h01: s_readdata_rw = disa_r[63:32];
-                    6'h02: s_readdata_rw = pend_r[31:0];
-                    6'h03: s_readdata_rw = pend_r[63:32];
-                    6'h04: s_readdata_rw = {26'h0, claim_ff2_r[5:0]};
-                    6'h05: s_readdata_rw = {26'h0, ipl_r};
-                    6'h08: begin s_readdata_rw = badAddr_r[31:0]; badAddrClear_rw = 1; end
-                    default: s_response_rw = 2'b11;
-                endcase
-            end else begin
-                case (bus_address[5:0]) 
-                    6'h00: disa_rw = {disa_r[63:32], bus_writedata};
-                    6'h01: disa_rw = {bus_writedata, disa_r[31:0]};
-                    6'h02: pend_rw_pre = {pend_r[63:32], (bus_writedata == 0) ? 32'h0 : (bus_writedata | pend_r[31:0])};
-                    6'h03: pend_rw_pre = {(bus_writedata == 0) ? 32'h0 : (bus_writedata | pend_r[63:32]), pend_r[31:0]};
-                    6'h04: pend_rw_pre = pend_r & ~(1<<bus_writedata[5:0]);
-                    6'h05: ipl_rw = bus_writedata[5:0];
-                    default: s_response_rw = 2'b11;
-                endcase
-            end
-            s_responsevalid_rw = 1;
-        end
+        if (~all_err_r && s_axi_wready_r && s_axi_wvalid) case (lsic_regaddr_r) 
+            6'h00: disa_rw = {disa_r[63:32], s_axi_wdata};
+            6'h01: disa_rw = {s_axi_wdata, disa_r[31:0]};
+            6'h02: pend_rw_pre = {pend_r[63:32], (s_axi_wdata == 0) ? 32'h0 : (s_axi_wdata | pend_r[31:0])};
+            6'h03: pend_rw_pre = {(s_axi_wdata == 0) ? 32'h0 : (s_axi_wdata | pend_r[63:32]), pend_r[31:0]};
+            6'h04: pend_rw_pre = pend_r & ~(1<<s_axi_wdata[5:0]);
+            6'h05: ipl_rw = s_axi_wdata[5:0];
+            default: w_err_rw = 1;
+        endcase       
     end
 
+    always_comb begin
+        state_rw = state_r;
+        rd_n_wr_rw = rd_n_wr_r;
+
+        s_axi_awready_rw = s_axi_awready_r;
+        s_axi_arready_rw = s_axi_arready_r;
+        s_axi_wready_rw = s_axi_wready_r;
+        s_axi_rvalid_rw = s_axi_rvalid_r;
+        s_axi_bvalid_rw = s_axi_bvalid_r;
+
+        all_err_rw = all_err_r;
+
+        case (state_r) 
+            READY: begin
+                all_err_rw = ~is_actually_my_transaction;
+                s_axi_awready_rw = 1;
+                s_axi_arready_rw = 1;
+                rd_n_wr_rw = s_axi_arvalid;
+                if (is_my_transaction && (aw_handshake || ar_handshake)) begin
+                    lsic_regaddr_rw = req_addr[7:2];
+                    s_axi_wready_rw = ~rd_n_wr_rw;
+                    s_axi_awready_rw = 0;
+                    s_axi_arready_rw = 0;
+                    state_rw = rd_n_wr_rw ? RD: WDATA;
+                end
+            end
+            RD: begin
+                s_axi_rvalid_rw = 1'b1;
+                all_err_rw = all_err_r | r_err_rw;
+                if (s_axi_rvalid_r && s_axi_rready) begin
+                    s_axi_rvalid_rw = 0;
+                    state_rw = READY;
+                end
+            end
+            WDATA: begin
+                s_axi_wready_rw = 1;
+                all_err_rw = all_err_r | w_err_rw;
+                if (s_axi_wready_r && s_axi_wvalid) begin
+                    s_axi_bvalid_rw = 1;
+                    s_axi_wready_rw = 0;
+                    state_rw = WRESP;
+                end
+            end
+            WRESP: begin
+                s_axi_bvalid_rw = 1;
+                if (s_axi_bvalid_r && s_axi_bready) begin
+                    s_axi_bvalid_rw = 0;
+                    state_rw = READY;
+                end
+            end
+        endcase
+    end
 
     // never busy
-    assign s_waitrequest = 1'b0;
-    assign s_readdatavalid = s_responsevalid_r;
-    assign s_writeresponsevalid = s_responsevalid_r;
-    assign s_readdata = s_readdata_r;
-    assign s_response = s_response_r;
+    assign s_axi_awready = s_axi_awready_r;
+    assign s_axi_arready = s_axi_arready_r;
+    assign s_axi_wready = s_axi_wready_r;
+    assign s_axi_bvalid = s_axi_bvalid_r;
+    assign s_axi_bresp = {2{all_err_r}};
+    assign s_axi_rlast = 1'b1; // does not do bursts
+    assign s_axi_rvalid = s_axi_rvalid_r;
+    assign s_axi_rdata = s_axi_rdata_r;
+    assign s_axi_rresp = {2{all_err_r}};
 
     assign cpu_irq = claim_ff2_r[6];
-    assign cpu_buserror = badAddr_r[32];
-
-    assign badAddrAck = badAddrAck_r;
 
 endmodule
 

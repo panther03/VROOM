@@ -31,7 +31,8 @@ module mkFetch #(
 
         // Access to word in the same fetched line. Doesn't need to be fetched from cache again
         // If in uncached region, always need new fetch.
-        let needsNewFetch = pc[0][31:30] == 2'b11 || imem_addr != lastImemAddr;
+        // icache is absent right now so it is always needed.
+        let needsNewFetch = True; //pc[0][31:30] == 2'b11 || imem_addr != lastImemAddr;
         if (needsNewFetch) begin
             let req = IMemReq { addr: pc[0][31:2] };
             putIMemReq(req);

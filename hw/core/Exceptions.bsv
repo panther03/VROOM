@@ -35,6 +35,7 @@ module mkExceptions #(
         // This is even the case if we have to retry an instruction because 
         // it generated an exception. If this is the case, we do not update the next PC in commit.
         // So, the next PC still points to that instruction.
+        $display("DIE %08x", archNextPc());
         crs.setEpc(archNextPc());
         // Update RS: push mode bits, set ECAUSE
         crs.updateRsForExc(erReg.ecause);
@@ -58,7 +59,6 @@ module mkExceptions #(
 
     method Action putASyncException(Maybe#(Bit#(32)) busBadAddr) if (!busy && !syncExcStarted && fsm.getState() != Exception);
         if (isValid(busBadAddr)) begin
-            $display("exception time.");
             erReg <= ExceptionRequest { ecause: ecause_BUS };
             crs.updateBadAddr(fromMaybe(?, busBadAddr));
         end else begin
