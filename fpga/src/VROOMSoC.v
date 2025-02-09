@@ -44,8 +44,41 @@ module VROOMSoC #(
 	input  wire [31:0] ram_m_axi_rdata,
 	input  wire [ 1:0] ram_m_axi_rresp,
 
+	output wire        frmbuf_m_axi_awvalid,
+	input  wire        frmbuf_m_axi_awready,
+	output wire [31:0] frmbuf_m_axi_awaddr,
+	output wire [ 7:0] frmbuf_m_axi_awlen,
+	output wire [ 2:0] frmbuf_m_axi_awsize,
+	output wire [ 1:0] frmbuf_m_axi_awburst,
+	output wire 	   frmbuf_m_axi_wvalid,
+	input  wire        frmbuf_m_axi_wready,
+	output wire [31:0] frmbuf_m_axi_wdata,
+	output wire        frmbuf_m_axi_wlast,
+	output wire [ 3:0] frmbuf_m_axi_wstrb,
+	input  wire  	   frmbuf_m_axi_bvalid,
+	output wire        frmbuf_m_axi_bready,
+	input  wire [ 1:0] frmbuf_m_axi_bresp,
+	output wire        frmbuf_m_axi_arvalid,
+	input  wire        frmbuf_m_axi_arready,
+	output wire [31:0] frmbuf_m_axi_araddr,
+	output wire [ 7:0] frmbuf_m_axi_arlen,
+	output wire [ 2:0] frmbuf_m_axi_arsize,
+	output wire [ 1:0] frmbuf_m_axi_arburst,
+	input  wire 	   frmbuf_m_axi_rvalid,
+	output wire        frmbuf_m_axi_rready,
+	input  wire        frmbuf_m_axi_rlast,
+	input  wire [31:0] frmbuf_m_axi_rdata,
+	input  wire [ 1:0] frmbuf_m_axi_rresp,
+
 	output wire 	   uart_tx,
-	input  wire 	   uart_rx
+	input  wire 	   uart_rx,
+
+	output wire        hs,               
+    output wire        vs,               
+    output wire        de,               
+    output wire [ 7:0] red,
+    output wire [ 7:0] green,
+    output wire [ 7:0] blue
 );
 	reg bus_waitrequest_local;
 	reg [31:0] bus_readdata_local;
@@ -215,12 +248,48 @@ module VROOMSoC #(
 		.uart_rx(uart_rx)
 	);
 
+	//////////////////////
+	// Kinnow grapihcs //
+	////////////////////
+	wire        vid_m_axi_arvalid;
+	wire        vid_m_axi_arready;
+	wire [31:0] vid_m_axi_araddr;
+	wire [ 7:0] vid_m_axi_arlen;
+	wire [ 2:0] vid_m_axi_arsize;
+	wire [ 1:0] vid_m_axi_arburst;
+	wire 	    vid_m_axi_rvalid;
+	wire        vid_m_axi_rready;
+	wire [31:0] vid_m_axi_rdata;
+	wire [ 1:0] vid_m_axi_rresp;
+
+	kinnow iKINNOW (
+		.clk(clk),
+		.rst(rst),
+		.pix_clk(clk),
+		.pix_rst(rst),
+		.m_axi_arvalid(vid_m_axi_arvalid),
+		.m_axi_arready(vid_m_axi_arready),
+		.m_axi_araddr(vid_m_axi_araddr),
+		.m_axi_arlen(vid_m_axi_arlen),
+		.m_axi_arsize(vid_m_axi_arsize),
+		.m_axi_arburst(vid_m_axi_arburst),
+		.m_axi_rvalid(vid_m_axi_rvalid),
+		.m_axi_rready(vid_m_axi_rready),
+		.m_axi_rdata(vid_m_axi_rdata),
+		.m_axi_rresp(vid_m_axi_rresp),
+		.hs(hs),
+		.vs(vs),
+		.de(de),
+		.red(red),
+		.green(green),
+		.blue(blue)
+	);
 	
     ///////////////////
 	// AXI Crossbar //
     /////////////////
 
-    axi_interconnect_wrap_1x4 #(
+    axi_interconnect_wrap_2x5 #(
 		.M00_BASE_ADDR(0),
 		.M00_ADDR_WIDTH(32'd14),
 		.M01_BASE_ADDR(32'hFFFE0000),
@@ -229,7 +298,9 @@ module VROOMSoC #(
 		.M02_BASE_ADDR(32'hF8000000),
 		.M02_ADDR_WIDTH(32'd12), // should be 10, but it won't let me put that..
 		.M03_BASE_ADDR(32'hF8030000),
-		.M03_ADDR_WIDTH(32'd12) // should be 10, but it won't let me put that..
+		.M03_ADDR_WIDTH(32'd12), // should be 10, but it won't let me put that..
+		.M04_BASE_ADDR(32'hC0000000),
+		.M04_ADDR_WIDTH(32'd21)
     ) iINTERCONNECT (
         .clk(clk),
         .rst(rst),
@@ -269,6 +340,40 @@ module VROOMSoC #(
 		.s00_axi_rresp(cpu_m_axi_rresp),
 		.s00_axi_rvalid(cpu_m_axi_rvalid),
 		.s00_axi_rready(cpu_m_axi_rready),
+
+		// kinnow DMA
+		.s01_axi_awid(8'h0),
+        .s01_axi_awaddr(0),
+		.s01_axi_awlen(0),
+		.s01_axi_awsize(0),
+		.s01_axi_awburst(0),
+		.s01_axi_awlock(1'b0),
+		.s01_axi_awcache(4'h0),
+		.s01_axi_awprot(3'h0),
+		.s01_axi_awqos(4'h0),
+		.s01_axi_awuser(0),
+		.s01_axi_awvalid(0),
+		.s01_axi_wdata(0),
+		.s01_axi_wstrb(0),
+		.s01_axi_wlast(0),
+		.s01_axi_wvalid(0),
+		.s01_axi_wuser(0),
+		.s01_axi_bready(0),
+		.s01_axi_araddr(vid_m_axi_araddr),
+		.s01_axi_arlen(vid_m_axi_arlen),
+		.s01_axi_arsize(vid_m_axi_arsize),
+		.s01_axi_arburst(vid_m_axi_arburst),
+		.s01_axi_arlock(1'b0),
+		.s01_axi_arcache(4'h0),
+		.s01_axi_arprot(3'h0),
+		.s01_axi_arqos(4'h0),
+		.s01_axi_aruser(0),
+		.s01_axi_arvalid(vid_m_axi_arvalid),
+		.s01_axi_arready(vid_m_axi_arready),
+		.s01_axi_rdata(vid_m_axi_rdata),
+		.s01_axi_rresp(vid_m_axi_rresp),
+		.s01_axi_rvalid(vid_m_axi_rvalid),
+		.s01_axi_rready(vid_m_axi_rready),
 
 		// RAM
 		.m00_axi_awaddr(ram_m_axi_awaddr),
@@ -349,7 +454,34 @@ module VROOMSoC #(
 		.m03_axi_rresp(lsic_s_axi_rresp),
 		.m03_axi_rlast(lsic_s_axi_rlast),
 		.m03_axi_rvalid(lsic_s_axi_rvalid),
-		.m03_axi_rready(lsic_s_axi_rready)
+		.m03_axi_rready(lsic_s_axi_rready),
+
+		// Framebuffer
+		.m04_axi_awaddr(frmbuf_m_axi_awaddr),
+		.m04_axi_awlen(frmbuf_m_axi_awlen),
+		.m04_axi_awsize(frmbuf_m_axi_awsize),
+		.m04_axi_awburst(frmbuf_m_axi_awburst),
+		.m04_axi_awvalid(frmbuf_m_axi_awvalid),
+		.m04_axi_awready(frmbuf_m_axi_awready),
+		.m04_axi_wdata(frmbuf_m_axi_wdata),
+		.m04_axi_wstrb(frmbuf_m_axi_wstrb),
+		.m04_axi_wlast(frmbuf_m_axi_wlast),
+		.m04_axi_wvalid(frmbuf_m_axi_wvalid),
+		.m04_axi_wready(frmbuf_m_axi_wready),
+		.m04_axi_bresp(frmbuf_m_axi_bresp),
+		.m04_axi_bvalid(frmbuf_m_axi_bvalid),
+		.m04_axi_bready(frmbuf_m_axi_bready),
+		.m04_axi_araddr(frmbuf_m_axi_araddr),
+		.m04_axi_arlen(frmbuf_m_axi_arlen),
+		.m04_axi_arsize(frmbuf_m_axi_arsize),
+		.m04_axi_arburst(frmbuf_m_axi_arburst),
+		.m04_axi_arvalid(frmbuf_m_axi_arvalid),
+		.m04_axi_arready(frmbuf_m_axi_arready),
+		.m04_axi_rdata(frmbuf_m_axi_rdata),
+		.m04_axi_rlast(frmbuf_m_axi_rlast),
+		.m04_axi_rresp(frmbuf_m_axi_rresp),
+		.m04_axi_rvalid(frmbuf_m_axi_rvalid),
+		.m04_axi_rready(frmbuf_m_axi_rready)
     );
 endmodule
 `default_nettype wire

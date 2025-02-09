@@ -46,10 +46,10 @@ module mkKonata (KonataIntf);
         else 
             deadlockCtr <= deadlockCtr + 1;
         
-        if (deadlockCtr >= deadlockLimit) begin
-            $fdisplay(stderr, "Stopping due to deadlock after %d cycles of no commit/squash", deadlockCtr);
-            $finish;
-        end
+        //if (deadlockCtr >= deadlockLimit) begin
+        //    $fdisplay(stderr, "Stopping due to deadlock after %d cycles of no commit/squash", deadlockCtr);
+        //    $finish;
+        //end
     endrule
 
     rule doSquash if (inited);

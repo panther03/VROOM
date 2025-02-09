@@ -1,6 +1,17 @@
 // 50mhz clock
 `default_nettype none
-module tb_harness ( input wire clk, input wire rst );
+module tb_harness ( 
+    input wire clk,
+    input wire rst,
+
+    output wire        hs,               
+    output wire        vs,               
+    output wire        de,               
+    output wire [ 7:0] red,
+    output wire [ 7:0] green,
+    output wire [ 7:0] blue
+);
+
     wire        rom_s_axi_arvalid;
     wire        rom_s_axi_arready;
     wire [31:0] rom_s_axi_araddr;
@@ -38,6 +49,32 @@ module tb_harness ( input wire clk, input wire rst );
     wire        ram_s_axi_rlast;
     wire [31:0] ram_s_axi_rdata;
     wire [ 1:0] ram_s_axi_rresp;
+
+    wire        frmbuf_s_axi_awvalid;
+    wire        frmbuf_s_axi_awready;
+    wire [31:0] frmbuf_s_axi_awaddr;
+    wire [ 7:0] frmbuf_s_axi_awlen;
+    wire [ 2:0] frmbuf_s_axi_awsize;
+    wire [ 1:0] frmbuf_s_axi_awburst;
+    wire 	    frmbuf_s_axi_wvalid;
+    wire        frmbuf_s_axi_wready;
+    wire [31:0] frmbuf_s_axi_wdata;
+    wire        frmbuf_s_axi_wlast;
+    wire [ 3:0] frmbuf_s_axi_wstrb;
+    wire  	    frmbuf_s_axi_bvalid;
+    wire        frmbuf_s_axi_bready;
+    wire [ 1:0] frmbuf_s_axi_bresp;
+    wire        frmbuf_s_axi_arvalid;
+    wire        frmbuf_s_axi_arready;
+    wire [31:0] frmbuf_s_axi_araddr;
+    wire [ 7:0] frmbuf_s_axi_arlen;
+    wire [ 2:0] frmbuf_s_axi_arsize;
+    wire [ 1:0] frmbuf_s_axi_arburst;
+    wire   	    frmbuf_s_axi_rvalid;
+    wire        frmbuf_s_axi_rready;
+    wire        frmbuf_s_axi_rlast;
+    wire [31:0] frmbuf_s_axi_rdata;
+    wire [ 1:0] frmbuf_s_axi_rresp;
 
 
     //////////////////////
@@ -106,8 +143,41 @@ module tb_harness ( input wire clk, input wire rst );
         .ram_m_axi_rdata(ram_s_axi_rdata),
         .ram_m_axi_rresp(ram_s_axi_rresp),
 
+        .frmbuf_m_axi_awvalid(frmbuf_s_axi_awvalid),
+        .frmbuf_m_axi_awready(frmbuf_s_axi_awready),
+        .frmbuf_m_axi_awaddr(frmbuf_s_axi_awaddr),
+        .frmbuf_m_axi_awlen(frmbuf_s_axi_awlen),
+        .frmbuf_m_axi_awsize(frmbuf_s_axi_awsize),
+        .frmbuf_m_axi_awburst(frmbuf_s_axi_awburst),
+        .frmbuf_m_axi_wvalid(frmbuf_s_axi_wvalid),
+        .frmbuf_m_axi_wlast(frmbuf_s_axi_wlast),
+        .frmbuf_m_axi_wready(frmbuf_s_axi_wready),
+        .frmbuf_m_axi_wdata(frmbuf_s_axi_wdata),
+        .frmbuf_m_axi_wstrb(frmbuf_s_axi_wstrb),
+        .frmbuf_m_axi_bvalid(frmbuf_s_axi_bvalid),
+        .frmbuf_m_axi_bready(frmbuf_s_axi_bready),
+        .frmbuf_m_axi_bresp(frmbuf_s_axi_bresp),
+        .frmbuf_m_axi_arvalid(frmbuf_s_axi_arvalid),
+        .frmbuf_m_axi_arready(frmbuf_s_axi_arready),
+        .frmbuf_m_axi_araddr(frmbuf_s_axi_araddr),
+        .frmbuf_m_axi_arlen(frmbuf_s_axi_arlen),
+        .frmbuf_m_axi_arsize(frmbuf_s_axi_arsize),
+        .frmbuf_m_axi_arburst(frmbuf_s_axi_arburst),
+        .frmbuf_m_axi_rvalid(frmbuf_s_axi_rvalid),
+        .frmbuf_m_axi_rready(frmbuf_s_axi_rready),
+        .frmbuf_m_axi_rlast(frmbuf_s_axi_rlast),
+        .frmbuf_m_axi_rdata(frmbuf_s_axi_rdata),
+        .frmbuf_m_axi_rresp(frmbuf_s_axi_rresp),
+
         .uart_tx(uart_tx),
-        .uart_rx(uart_rx)
+        .uart_rx(uart_rx),
+
+        .hs(hs),
+		.vs(vs),
+		.de(de),
+		.red(red),
+		.green(green),
+		.blue(blue)
     );
 
     ////////////////////////
@@ -144,6 +214,43 @@ module tb_harness ( input wire clk, input wire rst );
         .s_axi_rlast(ram_s_axi_rlast),
         .s_axi_rdata(ram_s_axi_rdata),
         .s_axi_rresp(ram_s_axi_rresp)
+    );
+
+    //////////////////
+    // Framebuffer //
+    ////////////////
+
+    SimpleMemSlave #(
+        .base_addr(32'hC0000000),
+        .mem_size(1024*1024*2),
+        .loadfile("kinnow.hex")
+    ) iFRMBUF (
+        .clk_i(clk),
+        .rst_i(rst),
+        .s_axi_awvalid(frmbuf_s_axi_awvalid),
+        .s_axi_awready(frmbuf_s_axi_awready),
+        .s_axi_awaddr(frmbuf_s_axi_awaddr),
+        .s_axi_awlen(frmbuf_s_axi_awlen),
+        .s_axi_awsize(frmbuf_s_axi_awsize),
+        .s_axi_awburst(frmbuf_s_axi_awburst),
+        .s_axi_wvalid(frmbuf_s_axi_wvalid),
+        .s_axi_wready(frmbuf_s_axi_wready),
+        .s_axi_wdata(frmbuf_s_axi_wdata),
+        .s_axi_wstrb(frmbuf_s_axi_wstrb),
+        .s_axi_bvalid(frmbuf_s_axi_bvalid),
+        .s_axi_bready(frmbuf_s_axi_bready),
+        .s_axi_bresp(frmbuf_s_axi_bresp),
+        .s_axi_arvalid(frmbuf_s_axi_arvalid),
+        .s_axi_arready(frmbuf_s_axi_arready),
+        .s_axi_araddr(frmbuf_s_axi_araddr),
+        .s_axi_arlen(frmbuf_s_axi_arlen),
+        .s_axi_arsize(frmbuf_s_axi_arsize),
+        .s_axi_arburst(frmbuf_s_axi_arburst),
+        .s_axi_rvalid(frmbuf_s_axi_rvalid),
+        .s_axi_rready(frmbuf_s_axi_rready),
+        .s_axi_rlast(frmbuf_s_axi_rlast),
+        .s_axi_rdata(frmbuf_s_axi_rdata),
+        .s_axi_rresp(frmbuf_s_axi_rresp)
     );
 
     ////////////////

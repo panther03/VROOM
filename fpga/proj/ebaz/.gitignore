@@ -101,3 +101,5 @@
 */*/*/bd/*/ip/*/*.tcl
 hw_handoff
 ipshared
+
+!init_fpga.c

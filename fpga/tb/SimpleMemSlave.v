@@ -84,7 +84,7 @@ always @(posedge clk_i) begin
         burstcount_r <= 0;
         byteenable_r <= 0;
     end else begin 
-        mem_addr_r   <= go_r ? mem_addr_r+1 : (start_transaction ? mem_calc_addr : 0);
+        mem_addr_r   <= go_r ? mem_addr_r+(handshake_w ? 1 : 0) : (start_transaction ? mem_calc_addr : 0);
         go_r         <= start_transaction ? is_my_transaction
             : (burstcount_r == 0 && (s_axi_rready || (bvalid_r && s_axi_bready)) ? 1'b0 : go_r);
         burstcount_r <= start_transaction 

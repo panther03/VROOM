@@ -2,3 +2,4 @@ obj_dir/
 uart0.log
 logs/
 *.hex
+!kinnow.hex

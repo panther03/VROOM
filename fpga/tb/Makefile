@@ -41,6 +41,8 @@ VERILATOR_FLAGS += -x-assign fast
 VERILATOR_FLAGS += --timing -Wno-ZERODLY -Wno-lint -Wno-style -Wno-MULTIDRIVEN -Wno-COMBDLY -Wno-TIMESCALEMOD -Wno-UNOPTFLAT
 # Make waveforms
 VERILATOR_FLAGS += --trace
+
+VERILATOR_FLAGS += -CFLAGS "$(shell sdl2-config --cflags)" -LDFLAGS "$(shell sdl2-config --libs)"
 # Check SystemVerilog assertions
 # VERILATOR_FLAGS += --assert
 # Generate coverage analysis
@@ -83,7 +85,7 @@ run:
 	@echo "-- RUN ---------------------"
 	@rm -rf logs
 	@mkdir -p logs
-	obj_dir/V$(TOP) +trace
+	obj_dir/V$(TOP) +disp
  
 	@echo
 	@echo "-- DONE --------------------"
