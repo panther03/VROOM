@@ -104,6 +104,8 @@ module tb_harness (
     ) iSOC (
         .clk(clk), 
         .rst(rst),
+        .pix_clk(clk),
+        .pix_rst(rst),
 
         .rom_m_axi_arvalid(rom_s_axi_arvalid),
         .rom_m_axi_arready(rom_s_axi_arready),

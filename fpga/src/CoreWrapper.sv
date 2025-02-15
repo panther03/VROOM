@@ -289,10 +289,6 @@ module CpuBusMaster (
 		read_err_rw = read_err_r | (read_handshake_w && m_axi_rresp[1]);
 		read_err_en_rw = 1'b0;
 
-		if (badAddrValid_rw & ~badAddrValid_r) begin
-			$display("bad bad bad %08x", m_axi_aaddr_r);
-		end
-
 		data_rw = beat_handshake_w ? {m_axi_rdata & read_error_mask_w, data_r[511:32]} : data_r;
 
 		case (state_r)

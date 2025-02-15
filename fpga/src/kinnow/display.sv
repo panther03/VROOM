@@ -16,8 +16,8 @@ module display #(
     V_FP=3,                        // vertical front porch
     V_SYNC=4,                       // vertical sync
     V_BP=23,                        // vertical back porch
-    H_POL=0,                        // horizontal sync polarity (0:neg, 1:pos)
-    V_POL=0                         // vertical sync polarity (0:neg, 1:pos)
+    H_POL=1,                        // horizontal sync polarity (0:neg, 1:pos)
+    V_POL=1                         // vertical sync polarity (0:neg, 1:pos)
     )
     (
     input  wire        pix_clk,          // pixel clock

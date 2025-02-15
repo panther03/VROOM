@@ -1,7 +1,7 @@
 {
   "design": {
     "design_info": {
-      "boundary_crc": "0x322A53533ED0EDE5",
+      "boundary_crc": "0x1711215DE3F6FAC8",
       "device": "xc7z010clg400-1",
       "gen_directory": "../../../../vroom.gen/sources_1/bd/design_1",
       "name": "design_1",
@@ -24,6 +24,7 @@
       "axi_mem_intercon": {
         "s00_couplers": {}
       },
+      "clk_wiz_0": "",
       "top_0": ""
     },
     "interface_ports": {
@@ -330,6 +331,68 @@
       },
       "led_low_0": {
         "direction": "O"
+      },
+      "hdmi_tx_n_0": {
+        "direction": "O",
+        "left": "2",
+        "right": "0"
+      },
+      "hdmi_tx_clk_p_0": {
+        "type": "clk",
+        "direction": "O",
+        "parameters": {
+          "CLK_DOMAIN": {
+            "value": "design_1_top_0_0_hdmi_tx_clk_p",
+            "value_src": "default_prop"
+          },
+          "FREQ_HZ": {
+            "value": "100000000",
+            "value_src": "default"
+          },
+          "FREQ_TOLERANCE_HZ": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "INSERT_VIP": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "PHASE": {
+            "value": "0.0",
+            "value_src": "default"
+          }
+        }
+      },
+      "hdmi_tx_clk_n_0": {
+        "type": "clk",
+        "direction": "O",
+        "parameters": {
+          "CLK_DOMAIN": {
+            "value": "design_1_top_0_0_hdmi_tx_clk_n",
+            "value_src": "default_prop"
+          },
+          "FREQ_HZ": {
+            "value": "100000000",
+            "value_src": "default"
+          },
+          "FREQ_TOLERANCE_HZ": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "INSERT_VIP": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "PHASE": {
+            "value": "0.0",
+            "value_src": "default"
+          }
+        }
+      },
+      "hdmi_tx_p_0": {
+        "direction": "O",
+        "left": "2",
+        "right": "0"
       }
     },
     "components": {
@@ -946,7 +1009,7 @@
         "inst_hier_path": "rom_bram",
         "parameters": {
           "Coe_File": {
-            "value": "../../../../../../../rom.coe"
+            "value": "../../../../../../../rom2.coe"
           },
           "Load_Init_File": {
             "value": "true"
@@ -1195,6 +1258,56 @@
               "M00_ARESETN",
               "s00_couplers/M_ARESETN"
             ]
+          }
+        }
+      },
+      "clk_wiz_0": {
+        "vlnv": "xilinx.com:ip:clk_wiz:6.0",
+        "xci_name": "design_1_clk_wiz_0_0",
+        "xci_path": "ip/design_1_clk_wiz_0_0/design_1_clk_wiz_0_0.xci",
+        "inst_hier_path": "clk_wiz_0",
+        "parameters": {
+          "CLKOUT1_JITTER": {
+            "value": "648.308"
+          },
+          "CLKOUT1_PHASE_ERROR": {
+            "value": "897.574"
+          },
+          "CLKOUT1_REQUESTED_OUT_FREQ": {
+            "value": "63.5"
+          },
+          "CLKOUT2_JITTER": {
+            "value": "520.984"
+          },
+          "CLKOUT2_PHASE_ERROR": {
+            "value": "897.574"
+          },
+          "CLKOUT2_REQUESTED_OUT_FREQ": {
+            "value": "317.5"
+          },
+          "CLKOUT2_USED": {
+            "value": "true"
+          },
+          "CLK_OUT1_PORT": {
+            "value": "pix_clk"
+          },
+          "CLK_OUT2_PORT": {
+            "value": "pix_clk_5x"
+          },
+          "MMCM_CLKFBOUT_MULT_F": {
+            "value": "63.500"
+          },
+          "MMCM_CLKOUT0_DIVIDE_F": {
+            "value": "10.000"
+          },
+          "MMCM_CLKOUT1_DIVIDE": {
+            "value": "2"
+          },
+          "MMCM_DIVCLK_DIVIDE": {
+            "value": "5"
+          },
+          "NUM_OUT_CLKS": {
+            "value": "2"
           }
         }
       },
@@ -1860,10 +1973,6 @@
                 "value": "frmbuf_m_axi:ram_m_axi:rom_m_axi",
                 "value_src": "constant"
               },
-              "ASSOCIATED_RESET": {
-                "value": "rst",
-                "value_src": "constant"
-              },
               "CLK_DOMAIN": {
                 "value": "design_1_processing_system7_0_0_FCLK_CLK0",
                 "value_src": "default_prop"
@@ -1874,11 +1983,53 @@
             "type": "rst",
             "direction": "I"
           },
+          "pix_clk": {
+            "type": "clk",
+            "direction": "I"
+          },
+          "pix_clk_5x": {
+            "direction": "I",
+            "parameters": {
+              "FREQ_HZ": {
+                "value": "317500000",
+                "value_src": "ip_prop"
+              },
+              "PHASE": {
+                "value": "0.0",
+                "value_src": "ip_prop"
+              },
+              "CLK_DOMAIN": {
+                "value": "/clk_wiz_0_clk_out1",
+                "value_src": "ip_prop"
+              }
+            }
+          },
+          "clk_lock": {
+            "direction": "I"
+          },
           "uart_tx": {
             "direction": "O"
           },
           "uart_rx": {
             "direction": "I"
+          },
+          "hdmi_tx_clk_n": {
+            "type": "clk",
+            "direction": "O"
+          },
+          "hdmi_tx_clk_p": {
+            "type": "clk",
+            "direction": "O"
+          },
+          "hdmi_tx_n": {
+            "direction": "O",
+            "left": "2",
+            "right": "0"
+          },
+          "hdmi_tx_p": {
+            "direction": "O",
+            "left": "2",
+            "right": "0"
           }
         },
         "addressing": {
@@ -2005,6 +2156,24 @@
           "led_pulse_0"
         ]
       },
+      "clk_wiz_0_locked": {
+        "ports": [
+          "clk_wiz_0/locked",
+          "top_0/clk_lock"
+        ]
+      },
+      "clk_wiz_0_pix_clk": {
+        "ports": [
+          "clk_wiz_0/pix_clk",
+          "top_0/pix_clk"
+        ]
+      },
+      "clk_wiz_0_pix_clk_5x": {
+        "ports": [
+          "clk_wiz_0/pix_clk_5x",
+          "top_0/pix_clk_5x"
+        ]
+      },
       "proc_sys_reset_0_peripheral_aresetn": {
         "ports": [
           "proc_sys_reset_0/peripheral_aresetn",
@@ -2020,6 +2189,7 @@
         "ports": [
           "proc_sys_reset_0/peripheral_reset",
           "blinky_0/rst",
+          "clk_wiz_0/reset",
           "top_0/rst"
         ]
       },
@@ -2048,6 +2218,7 @@
           "processing_system7_0/S_AXI_GP0_ACLK",
           "axi_mem_intercon/M00_ACLK",
           "axi_mem_intercon/ACLK",
+          "clk_wiz_0/clk_in1",
           "top_0/clk"
         ]
       },
@@ -2055,6 +2226,30 @@
         "ports": [
           "processing_system7_0/FCLK_RESET0_N",
           "proc_sys_reset_0/ext_reset_in"
+        ]
+      },
+      "top_0_hdmi_tx_clk_n": {
+        "ports": [
+          "top_0/hdmi_tx_clk_n",
+          "hdmi_tx_clk_n_0"
+        ]
+      },
+      "top_0_hdmi_tx_clk_p": {
+        "ports": [
+          "top_0/hdmi_tx_clk_p",
+          "hdmi_tx_clk_p_0"
+        ]
+      },
+      "top_0_hdmi_tx_n": {
+        "ports": [
+          "top_0/hdmi_tx_n",
+          "hdmi_tx_n_0"
+        ]
+      },
+      "top_0_hdmi_tx_p": {
+        "ports": [
+          "top_0/hdmi_tx_p",
+          "hdmi_tx_p_0"
         ]
       },
       "top_0_uart_tx": {

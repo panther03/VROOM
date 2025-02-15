@@ -5,6 +5,8 @@ module VROOMSoC #(
 )(
 	input  wire clk,
 	input  wire rst,
+	input  wire pix_clk,
+	input  wire pix_rst,
 	
 	output wire        rom_m_axi_arvalid,
 	input  wire        rom_m_axi_arready,
@@ -265,8 +267,8 @@ module VROOMSoC #(
 	kinnow iKINNOW (
 		.clk(clk),
 		.rst(rst),
-		.pix_clk(clk),
-		.pix_rst(rst),
+		.pix_clk(pix_clk),
+		.pix_rst(pix_rst),
 		.m_axi_arvalid(vid_m_axi_arvalid),
 		.m_axi_arready(vid_m_axi_arready),
 		.m_axi_araddr(vid_m_axi_araddr),
